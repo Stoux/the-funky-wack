@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
             <div class="flex-1">
                 <div class="text-sm">
                     <div class="font-medium">{{ liveset.title }}</div>
-                    <div class="text-red-600" v-if="isLoading && hasPeaks === false">No peaks available. Loading full audio file to generate waveform.
+                    <div class="text-red-600" v-if="isLoading && hasPeaks === false && generatePeaksIfMissing">No peaks available. Loading full audio file to generate waveform.
                         <span class="underline cursor-pointer" @click="generatePeaksIfMissing = false; initPlayer();">Disable?</span>
                     </div>
                     <div class="text-muted-foreground" v-else>{{ liveset.artist_name }} • TFW #{{ edition.number }}</div>
