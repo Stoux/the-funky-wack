@@ -14,7 +14,7 @@ class LivesetController extends Controller
 {
     public function livesets()
     {
-        $livesets = Liveset::with('edition')
+        $livesets = Liveset::with(['edition', 'files'])
             ->orderBy('edition_id', 'desc')
             ->orderBy('lineup_order', 'asc')
             ->get();

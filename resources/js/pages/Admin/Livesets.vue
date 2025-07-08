@@ -80,6 +80,9 @@ const deleteLiveset = (liveset: Liveset) => {
                                 <Link :href="route('admin.livesets.view', liveset.id)">
                                     <Button variant="outline" size="sm">View</Button>
                                 </Link>
+                                <Link :href="route('admin.livesets.files', liveset.id)" v-if="liveset.files?.length">
+                                    <Button variant="outline" size="sm">Files ({{ liveset.files.length }})</Button>
+                                </Link>
                                 <ConfirmDialog title="Delete this liveset?" description="This cannot be undone."
                                                confirm-label="Delete"
                                                @confirm="deleteLiveset(liveset)">
