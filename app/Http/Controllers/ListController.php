@@ -31,10 +31,8 @@ class ListController extends Controller
                 'files' => $liveset->files->filter(fn(LivesetFile $file) => $file->existsOnDisk())->mapWithKeys(fn(LivesetFile $file) => [
                     $file->quality->value => \Storage::disk('public')->url($file->path),
                 ])->toArray() ?: null,
-            ]),
+            ])->values(),
         ]);
-
-
 
         return Inertia::render('List', [
             'editions' => $editions,
