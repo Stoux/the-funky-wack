@@ -15,9 +15,6 @@ class ListController extends Controller
 
     public function index()
     {
-
-        $publicDisk = Storage::disk('public');
-
         $editions = Edition::all()->map(fn($edition) => [
             ...$edition->toArray(),
             'date' => $edition->date?->format('j M Y'),
