@@ -319,17 +319,16 @@ const breadcrumbs: HeaderBreadrumbItem[] = [
                                 <div v-for="file in fileSelectorVisibleFiles" :key="file.name"
                                      class="flex items-center justify-between pl-2 py-0.5 rounded-lg hover:bg-muted/50 transition-colors"
                                      :class="{ 'cursor-pointer': !file.file }"
-                                     @click="file.file ? undefined : fileSelectorPath.push(file.name)">
+                                     @click="file.file ? selectFile(file.file) : fileSelectorPath.push(file.name)">
                                     <div>
                                         {{ file.name.split("/").reverse()[0] }}
                                     </div>
                                     <div>
-                                        <Button variant="ghost" size="icon" @click="fileSelectorPath.push(file.name)"
+                                        <Button variant="ghost" size="icon"
                                                 v-if="!file.file" type="button">
                                             <ChevronRight/>
                                         </Button>
-                                        <Button variant="outline" v-if="file.file" type="button"
-                                                @click="selectFile(file.file)" class="cursor-pointer">
+                                        <Button variant="outline" v-if="file.file" type="button" class="cursor-pointer">
                                             Use
                                             <Plus/>
                                         </Button>
