@@ -15,10 +15,18 @@ class AdminLoggedIn
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (! session()->has(self::SESSION_KEY)) {
+        if (! $this->isLoggedIn()) {
             return redirect()->route('login');
         }
 
         return $next($request);
+    }
+
+    /**
+     * @return bool
+     */
+    public function isLoggedIn(): bool
+    {
+        return session()->has(self::SESSION_KEY);
     }
 }
