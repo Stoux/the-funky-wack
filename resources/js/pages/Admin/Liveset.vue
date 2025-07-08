@@ -226,8 +226,8 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                             <Label for="duration">Duration (MM:SS)</Label>
                             <Input
                                 id="duration"
-                                :value="formatDuration(form.duration_in_seconds)"
-                                @input="form.duration_in_seconds = parseDuration($event.target.value)"
+                                :model-value="formatDuration(form.duration_in_seconds)"
+                                @update:model-value="form.duration_in_seconds = parseDuration($event.target.value)"
                                 type="text"
                                 placeholder="00:00"
                                 :disabled="form.processing"
