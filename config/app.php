@@ -129,4 +129,6 @@ return [
         'audiowaveform' => env('TFW_AUDIOWAVEFORM_PATH', ''),
     ],
 
+    'force_https' => env('APP_FORCE_HTTPS', false),
+
 ];
