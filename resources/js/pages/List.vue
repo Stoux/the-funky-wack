@@ -39,8 +39,6 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: string) => {
 </script>
 
 <template>
-    <Head title="Editions"/>
-
     <div class="flex h-full flex-1 flex-col gap-4 p-4" :class="{ 'pb-64': currentLiveset && currentEdition }">
         <h2 class="text-4xl font-bold">The Funky Wack - <span
             class="text-muted-foreground">Wacky beats, the recordings.</span></h2>
