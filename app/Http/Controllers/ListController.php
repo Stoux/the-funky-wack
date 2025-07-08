@@ -21,7 +21,7 @@ class ListController extends Controller
         $editions = Edition::all()->map(fn($edition) => [
             ...$edition->toArray(),
             'date' => $edition->date?->format('j M Y'),
-            'livesets' => $edition->livesets->map(fn(Liveset $liveset) => [
+            'livesets' => $edition->livesets->sortBy('lineup_order')->map(fn(Liveset $liveset) => [
                 ...$liveset->toArray(),
                 'started_at' => $liveset->started_at?->format('j M Y H:i'),
                 'tracks' => $liveset->tracks->sortBy('order')->map(fn(LivesetTrack $track) => [
