@@ -9,7 +9,7 @@ import {
     SheetTitle,
     SheetTrigger
 } from "@/components/ui/sheet";
-import {Button} from "@/components/ui/button";
+import {Button, type ButtonVariants} from "@/components/ui/button";
 import {ListMusic} from "lucide-vue-next";
 import {Liveset} from "@/types";
 import {computed, nextTick, onMounted, ref, useTemplateRef, watch} from "vue";
@@ -20,7 +20,7 @@ import {useTemplateRefsList} from "@vueuse/core";
 const props = defineProps<{
     liveset: Liveset;
     currentTime?: number,
-    ghostButton?: boolean,
+    buttonType?: ButtonVariants['variant'],
 }>();
 
 const emits = defineEmits<{
@@ -100,7 +100,7 @@ onMounted(() => {
 <template>
     <Sheet v-model:open="isOpen">
         <SheetTrigger as-child>
-            <Button size="icon" :variant="ghostButton ? 'ghost' : 'outline'" class="h-8 w-8 rounded-full cursor-pointer" :disabled="!liveset.tracks?.length">
+            <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full cursor-pointer" :disabled="!liveset.tracks?.length">
                 <ListMusic class="h-4 w-4" />
             </Button>
         </SheetTrigger>

@@ -1,18 +1,13 @@
 <script setup lang="ts">
-import {Edition, Liveset} from '@/types';
-import {Head} from '@inertiajs/vue3';
-import {ref, computed} from 'vue';
-import {Button} from '@/components/ui/button';
-import {Play} from 'lucide-vue-next';
-import {Separator} from "@/components/ui/separator";
-import {formatDuration} from "@/lib/utils";
+import {Edition, Liveset, LivesetFilesByQuality} from '@/types';
+import {ref, computed, useTemplateRef} from 'vue';
 import ListenBar from "@/components/ListenBar.vue";
-import LivesetTrackList from "@/components/LivesetTrackList.vue";
-import LivesetDescription from "@/components/LivesetDescription.vue";
+import LivesetItem from "@/components/LivesetItem.vue";
 
 const props = defineProps<{
     editions: Edition[],
-    qualities: { [key: string]: string },
+    // Not actual files but labels
+    qualities: LivesetFilesByQuality,
 }>();
 
 // Sort editions by number in descending order (newest first)
@@ -23,11 +18,19 @@ const sortedEditions = computed(() => {
 // State for the currently playing liveset
 const currentLiveset = ref<Liveset | undefined>(undefined);
 const currentEdition = ref<Edition | undefined>(undefined);
-const audioQuality = ref('hq');
+const audioQuality = ref<keyof LivesetFilesByQuality>('hq');
+const isPlaying = ref(false);
+const listenBarElement = useTemplateRef<typeof ListenBar>('listenBarElement');
 
 
 // Play a liveset
-const playLiveset = (edition: Edition, liveset: Liveset, quality?: string) => {
+const playLiveset = (edition: Edition, liveset: Liveset, quality?: keyof LivesetFilesByQuality) => {
+    if (currentEdition.value?.id === edition.id && currentLiveset.value?.id === liveset.id && ( quality === undefined || quality === audioQuality.value ) ) {
+        // Play/pausing the current liveset.
+        listenBarElement.value?.onPlayPause();
+        return;
+    }
+
     currentEdition.value = edition;
     currentLiveset.value = liveset;
     if (quality) {
@@ -59,60 +62,21 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: string) => {
                     <div v-if="!edition.livesets?.length">
                         <h3 class="font-medium">No livesets (yet).</h3>
                     </div>
-                    <div v-for="liveset in edition.livesets" :key="liveset.id"
-                         class="flex items-center p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <div class="flex items-center space-x-4 flex-1">
-                            <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full" :disabled="!liveset.files"
-                                    @click="playLiveset(edition, liveset)">
-                                <Play class="h-4 w-4" v-if="liveset.files"/>
-                            </Button>
 
-                            <div>
-                                <h3 class="font-medium">
-                                    <span class="text-muted-foreground" v-if="liveset.lineup_order !== null && liveset.lineup_order !== undefined">#{{ liveset.lineup_order }} &bull;</span>
-                                    {{ liveset.title }}
-                                </h3>
-                                <a href="#" class="text-sm text-primary hover:underline">{{ liveset.artist_name }}</a>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center space-x-1 mr-4 text-muted-foreground">
-
-                            <Button variant="outline" class="h-8 w-auto p-2 rounded-full hidden md:block"
-                                    v-if="liveset.files?.lq"
-                                    @click="playLiveset(edition, liveset, 'lq')">
-                                LQ
-                            </Button>
-                            <Button variant="outline" class="h-8 w-auto p-2 rounded-full hidden md:block"
-                                    v-if="liveset.files?.hq"
-                                    @click="playLiveset(edition, liveset, 'hq')">
-                                HQ
-                            </Button>
-                            <Button variant="outline" class="h-8 w-auto p-2 rounded-full hidden lg:block"
-                                    v-if="liveset.files?.lossless"
-                                    @click="playLiveset(edition, liveset, 'lossless')">
-                                WAV
-                            </Button>
-
-                            <Separator orientation="vertical"/>
-
-                            <LivesetTrackList :liveset="liveset"/>
-                            <LivesetDescription :edition="edition" :liveset="liveset"/>
-
-                        </div>
-
-                        <div class="text-sm text-muted-foreground">
-                            {{ formatDuration(liveset.duration_in_seconds) }}
-                        </div>
-                    </div>
+                    <LivesetItem v-for="liveset in edition.livesets" :key="liveset.id"
+                                 :edition="edition" :liveset="liveset"
+                                 :is-current="liveset.id === currentLiveset?.id"
+                                 :is-playing="liveset.id === currentLiveset?.id && isPlaying"
+                                 @play="quality => playLiveset(edition, liveset, quality)"
+                                 />
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Sticky player bar at the bottom -->
-    <ListenBar v-if="currentLiveset && currentEdition"
+    <ListenBar v-if="currentLiveset && currentEdition" ref="listenBarElement"
                :edition="currentEdition" :liveset="currentLiveset" :qualities="qualities"
-               v-model:quality="audioQuality"/>
+               v-model:quality="audioQuality" v-model:playing="isPlaying"/>
 
 </template>

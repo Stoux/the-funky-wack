@@ -1,36 +1,40 @@
 <script setup lang="ts">
 
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
-import {ChevronDown, Info, ListMusic, Pause, Play, Loader2} from "lucide-vue-next";
+import {ChevronDown, Pause, Play, Loader2} from "lucide-vue-next";
 import {Button} from "@/components/ui/button";
 import WaveSurfer from "wavesurfer.js";
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from "vue";
-import {Edition, Liveset} from "@/types";
+import {Edition, Liveset, LivesetFilesByQuality} from "@/types";
 import {formatDuration} from "@/lib/utils";
-import PlaceholderPattern from "@/components/PlaceholderPattern.vue";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import LivesetDescription from "@/components/LivesetDescription.vue";
 
 const props = defineProps<{
     edition: Edition,
     liveset: Liveset,
-    qualities: { [key: string]: string },
+    // Not actual files but labels
+    qualities: LivesetFilesByQuality,
 }>();
 
-const quality = defineModel<string>('quality', {
+const quality = defineModel<keyof LivesetFilesByQuality>('quality', {
     default: 'hq',
+});
+
+const playing = defineModel<boolean>('playing', {
+    default: false,
 });
 
 const waveInstance = ref<WaveSurfer|undefined>(undefined);
 const currentTime = ref(0);
 const nowPlaying = ref<string|undefined>(undefined);
-const isPlaying = ref(false);
 const isLoading = ref(true);
 const hasPeaks = ref<boolean|undefined>(undefined);
 const generatePeaksIfMissing = ref(false);
 
-const availableQualities = computed<string[]>(() => {
-    return Object.keys(props.qualities).filter(quality => props.liveset.files?.[quality] !== undefined);
+const availableQualities = computed<(keyof LivesetFilesByQuality)[]>(() => {
+    const keys = Object.keys(props.qualities) as (keyof LivesetFilesByQuality)[];
+    return keys.filter(quality => props.liveset.files?.[quality] !== undefined);
 });
 
 const source = computed<string|undefined>(() => {
@@ -53,7 +57,8 @@ function onPlayPause() {
         return;
     }
 
-    if (isPlaying.value) {
+
+    if (playing.value) {
         waveInstance.value.pause();
     } else {
         waveInstance.value.play();
@@ -88,7 +93,7 @@ async function initPlayer() {
     }
 
     currentTime.value = 0;
-    isPlaying.value = false;
+    playing.value = false;
     isLoading.value = true;
 
     // Load peaks if they are available
@@ -135,10 +140,10 @@ async function initPlayer() {
     })
 
     surfer.on('play', () => {
-        isPlaying.value = true;
+        playing.value = true;
     })
     surfer.on('pause', () => {
-        isPlaying.value = false;
+        playing.value = false;
     })
 
     surfer.on('ready', () => {
@@ -147,7 +152,7 @@ async function initPlayer() {
     })
 
     surfer.on('finish', () => {
-        isPlaying.value = false;
+        playing.value = false;
     })
     surfer.on('timeupdate', (time) => {
         currentTime.value = Math.floor( time );
@@ -165,6 +170,11 @@ onBeforeUnmount(() => {
     waveInstance.value?.destroy();
     waveInstance.value = undefined;
 })
+
+defineExpose({
+    onPlayPause,
+});
+
 </script>
 
 <template>
@@ -184,7 +194,7 @@ onBeforeUnmount(() => {
         <div class="flex items-center space-x-4 w-full">
             <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full" @click.prevent="onPlayPause">
                 <Loader2 class="w-4 h-4 animate-spin" v-if="isLoading" />
-                <Pause class="h-4 w-4" v-else-if="isPlaying" />
+                <Pause class="h-4 w-4" v-else-if="playing" />
                 <Play class="h-4 w-4" v-else />
             </Button>
 
@@ -208,10 +218,10 @@ onBeforeUnmount(() => {
                 Generate waveform?
             </Button>
 
-            <LivesetTrackList :liveset="liveset" :current-time="currentTime" :ghost-button="true" v-if="liveset.tracks?.length"
+            <LivesetTrackList :liveset="liveset" :current-time="currentTime" button-type="ghost" v-if="liveset.tracks?.length"
                               @go-to-time="goToTime" @now-playing="nowPlaying = $event" />
 
-            <LivesetDescription :edition="edition" :liveset="liveset" :ghost-button="true" v-if="liveset.description" />
+            <LivesetDescription :edition="edition" :liveset="liveset" button-type="ghost" v-if="liveset.description" />
 
             <DropdownMenu>
                 <DropdownMenuTrigger as="div">

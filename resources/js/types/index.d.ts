@@ -47,6 +47,12 @@ export type Edition = {
 }
 
 
+export type LivesetFilesByQuality = {
+    lq?: string,
+    hq?: string,
+    lossless?: string,
+};
+
 export type Liveset = {
     id: number,
     edition_id: number,
@@ -63,11 +69,7 @@ export type Liveset = {
     audio_waveform_path?: string,
     audio_waveform_url?: string,
     tracks?: LivesetTrack[],
-    files?: {
-        lq?: string,
-        hq?: string,
-        lossless?: string,
-    }
+    files?: LivesetFilesByQuality
 }
 
 export type LivesetTrack = {
