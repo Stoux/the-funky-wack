@@ -47,11 +47,11 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: keyof Liveset
             class="text-muted-foreground">Wacky beats, the recordings.</span></h2>
 
         <!-- List of editions -->
-        <div class="space-y-8">
-            <div v-for="edition in sortedEditions" :key="edition.id" class="space-y-4">
+        <div class="space-y-8" id="tfw">
+            <div v-for="edition in sortedEditions" :key="edition.id" class="space-y-4" :id="'tfw' + edition.number">
                 <!-- Edition header -->
                 <div class="border-b pb-2">
-                    <h2 class="text-2xl font-bold">TFW #{{ edition.number }} - <span
+                    <h2 class="text-2xl font-bold">TFW <a :href="'#tfw' + edition.number" class="cursor-pointer">#{{ edition.number }}</a> - <span
                         class="text-muted-foreground">{{ edition.tag_line }}</span></h2>
                     <p class="text-sm text-muted-foreground">{{ edition.date }}</p>
                     <p class="text-sm text-muted-foreground" v-if="edition.notes">{{ edition.notes }}</p>
