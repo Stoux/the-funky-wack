@@ -24,7 +24,9 @@ defineProps<{
 <template>
     <Sheet>
         <SheetTrigger as-child>
-            <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full" :disabled="!liveset.description">
+            <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full"
+                    title="View description / more info"
+                    :disabled="!liveset.description">
                 <Info class="h-4 w-4" />
             </Button>
         </SheetTrigger>

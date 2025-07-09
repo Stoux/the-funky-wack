@@ -100,7 +100,9 @@ onMounted(() => {
 <template>
     <Sheet v-model:open="isOpen">
         <SheetTrigger as-child>
-            <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full cursor-pointer" :disabled="!liveset.tracks?.length">
+            <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full cursor-pointer"
+                    title="View tracklist"
+                    :disabled="!liveset.tracks?.length">
                 <ListMusic class="h-4 w-4" />
             </Button>
         </SheetTrigger>
