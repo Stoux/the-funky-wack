@@ -130,6 +130,7 @@ async function initPlayer() {
         normalize: true,
         mediaControls: false,
         hideScrollbar: true,
+        autoCenter: false,
         minPxPerSec: 1,
         peaks: peaks,
         url: source.value,
