@@ -6,9 +6,10 @@ import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';
 import {Input} from '@/components/ui/input';
 import {computed, useTemplateRef} from 'vue';
-import {File} from 'lucide-vue-next'
+import {File, Rotate3D} from 'lucide-vue-next'
 import axios from 'axios';
 import {formatDuration, parseDuration} from "@/lib/utils";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
 interface Props {
     liveset: Liveset | null;
@@ -78,6 +79,10 @@ const onCueFileSelected = async (e: Event) => {
     if (!form.started_at && result.data.recorded_at) {
         form.started_at = new Date(result.data.recorded_at).toISOString().slice(0, 16);
     }
+}
+
+const attemptFixTrackList = () => {
+    form.tracks_text = form.tracks_text.replaceAll(/^(\d+\.|- )/gm, '--:--:-- | ');
 }
 
 const handleSubmit = () => {
@@ -262,11 +267,21 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                                 <div class="flex flex-col gap-2">
                                     <Label for="tracks_text">Tracks</Label>
                                     <div class="text-sm text-gray-500 mb-1">
-                                        Format: [hh]:[mm]:[ss] | {title/name} (one track per line)
+                                        Format: [hh]:[mm]:[ss] | {title/name} (one track per line) <br />
+                                        No timestamp: --:--:-- | {title/name}
                                     </div>
                                 </div>
-                                <div>
-                                    <Button size="icon" variant="outline" class="w-8 h-8" type="button"
+                                <div class="flex space-x-2">
+                                    <ConfirmDialog title="Attempt to fix tracklist?" description="I'll try to convert common lists (i.e. 1. or -) to a list of songs without timestamps." confirm-label="Attempt fix"
+                                        @confirm="attemptFixTrackList">
+                                        <Button size="icon" variant="outline" class="w-8 h-8 cursor-pointer" type="button"
+                                                title="Attempt to fix tracklist"
+                                                :disabled="form.processing">
+                                            <Rotate3D class="h-4 w-4"/>
+                                        </Button>
+                                    </ConfirmDialog>
+
+                                    <Button size="icon" variant="outline" class="w-8 h-8 cursor-pointer" type="button"
                                             title="Select a .cue file" @click.prevent="selectCueFile"
                                             :disabled="form.processing">
                                         <File class="h-4 w-4"/>
