@@ -68,7 +68,10 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: string) => {
                             </Button>
 
                             <div>
-                                <h3 class="font-medium">{{ liveset.title }}</h3>
+                                <h3 class="font-medium">
+                                    <span class="text-muted-foreground" v-if="liveset.lineup_order !== null && liveset.lineup_order !== undefined">#{{ liveset.lineup_order }} &bull;</span>
+                                    {{ liveset.title }}
+                                </h3>
                                 <a href="#" class="text-sm text-primary hover:underline">{{ liveset.artist_name }}</a>
                             </div>
                         </div>
