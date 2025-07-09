@@ -77,7 +77,7 @@ export type LivesetTrack = {
     liveset_id: number,
     title: string,
     // Timestamp in seconds from start of liveset
-    timestamp?: number,
+    timestamp: number|null,
     order: number,
 }
 

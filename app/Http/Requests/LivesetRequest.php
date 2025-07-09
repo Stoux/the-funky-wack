@@ -61,6 +61,17 @@ abstract class LivesetRequest extends FormRequest
                 continue;
             }
 
+            // Format without timestamps
+            if (preg_match('/^--:--:--\s*\|\s*(?P<title>.+)$/', $line, $matches)) {
+                $tracks[] = [
+                    'timestamp' => null,
+                    'title' => $matches['title'],
+                    'order' => $order++,
+                ];
+
+                continue;
+            }
+
             // Validate format: [hh]:[mm]:[ss] | {title/name}
             if (!preg_match('/^(\d{1,2}):(\d{2}):(\d{2})\s*\|\s*(.+)$/', $line, $matches)) {
                 $lineNumber++; // Make it 1-based for user-friendly error message

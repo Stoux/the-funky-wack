@@ -119,8 +119,11 @@ onMounted(() => {
                     <div class="px-4 py-2" v-for="(track, index) of liveset.tracks" :key="track.id" ref="trackElements">
                         <div :class="{ 'text-green-600 js-now-playing': index === nowPlayingIndex, 'text-muted-foreground': index !== nowPlayingIndex, 'cursor-pointer': index !== undefined }"
                              @click="emits('goToTime', track.timestamp || 0)"
-                             v-if="track.timestamp !== undefined">
-                            {{ formatDuration(track.timestamp)}}
+                             v-if="track.timestamp !== null">
+                            #{{ track.order }} &bull; {{ formatDuration(track.timestamp)}}
+                        </div>
+                        <div v-else class="text-muted-foreground">
+                            #{{ track.order }}
                         </div>
                         <div class="font-medium">
                             {{ track.title }}

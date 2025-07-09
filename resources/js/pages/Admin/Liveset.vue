@@ -8,6 +8,7 @@ import {Input} from '@/components/ui/input';
 import {computed, useTemplateRef} from 'vue';
 import {File} from 'lucide-vue-next'
 import axios from 'axios';
+import {formatDuration, parseDuration} from "@/lib/utils";
 
 interface Props {
     liveset: Liveset | null;
@@ -18,49 +19,13 @@ interface Props {
 const props = defineProps<Props>();
 const isNewLiveset = !props.liveset;
 
-
-// Format duration from seconds to HH:MM:SS for display
-const formatDuration = (seconds: number | undefined | null): string => {
-    if (seconds === null || seconds === undefined) {
-        return '';
-    }
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-
-    if (hours > 0) {
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
-
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-};
-
-// Parse duration string to seconds for form input
-const parseDuration = (durationString: string): number | undefined => {
-    if (!durationString) {
-        return undefined;
-    }
-
-    const parts = durationString.split(':').map(Number);
-
-    if (parts.length === 3) {
-        // HH:MM:SS format
-        return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    } else if (parts.length === 2) {
-        // MM:SS format
-        return parts[0] * 60 + parts[1];
-    }
-
-    return undefined;
-};
-
 // Format tracks for display in textarea
 const formatTracksForTextarea = (tracks: LivesetTrack[] | undefined): string => {
     if (!tracks || tracks.length === 0) return '';
 
     return tracks.map(track => {
         // Convert timestamp from seconds to HH:MM:SS format
-        const formattedTimestamp = formatDuration(track.timestamp);
+        const formattedTimestamp = formatDuration(track.timestamp, true, '--:--:--');
         return `${formattedTimestamp} | ${track.title}`;
     }).join('\n');
 };
