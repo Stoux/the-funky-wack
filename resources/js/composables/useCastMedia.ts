@@ -1,6 +1,6 @@
 import {ref} from "vue";
 
-type CastingState = 'connecting'|'connected'|undefined;
+type CastingState = 'connecting'|'connected'|'reconnecting'|undefined;
 
 const canCast = ref(false);
 const casting = ref<CastingState>(undefined);
@@ -62,7 +62,7 @@ function withAudioElement(audioEl: HTMLAudioElement|undefined) {
 }
 
 function promptForCast() {
-    audioElement.value?.remote.prompt();
+    return audioElement.value?.remote.prompt();
 }
 
 export function useCastMedia() {

@@ -110,6 +110,12 @@ async function initPlayer() {
     loading.value = true;
     loadingSource.value = source.value;
 
+    // Super hacky: Disable remote playback on the audio element to force the remote API to realize the source URL has changed, otherwise it will just play the previous liveset :').
+    if (castMedia.casting && audioElement.value) {
+        castMedia.casting.value = 'reconnecting';
+        audioElement.value.disableRemotePlayback = true;
+    }
+
     // Load peaks if they are available
     hasPeaks.value = undefined;
     let peaks = generatePeaksIfMissing.value ? undefined : [ [] ];
@@ -164,6 +170,16 @@ async function initPlayer() {
 
     surfer.on('ready', () => {
         loading.value = false;
+
+        // Super hacky: Re-enable remote playback on the audio element & force another prompt.
+        if (castMedia.casting.value === 'reconnecting' && audioElement.value) {
+            audioElement.value.disableRemotePlayback = false;
+            castMedia.casting.value = 'connected';
+            // Prompts the thing right into your face again, but it does force the cast session to actually update the source.
+            castMedia.promptForCast()?.then(() => {
+                audioElement.value?.play();
+            })
+        }
 
         // Check if we're restoring state & should skip to a certain spot
         if (restoredState.value && restoredState.value.liveset === props.liveset.id && restoredState.value.audioQuality === quality.value) {
