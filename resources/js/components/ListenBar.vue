@@ -4,12 +4,14 @@ import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 import {ChevronDown, Pause, Play, Loader2} from "lucide-vue-next";
 import {Button} from "@/components/ui/button";
 import WaveSurfer from "wavesurfer.js";
-import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from "vue";
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch} from "vue";
 import {Edition, Liveset, LivesetFilesByQuality, LivesetQuality} from "@/types";
 import {formatDuration} from "@/lib/utils";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import LivesetDescription from "@/components/LivesetDescription.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
+import CastButton from "@/components/CastButton.vue";
+import {useCastMedia} from "@/composables/useCastMedia";
 
 const props = defineProps<{
     edition: Edition,
@@ -20,15 +22,18 @@ const props = defineProps<{
 
 const {
     audioQuality: quality,
+    loading,
     playing,
     finished,
     currentTime,
     restoredState,
 } = useNowPlayingState();
 
+const castMedia = useCastMedia();
+const audioElement = useTemplateRef('audio');
+
 let waveInstance: WaveSurfer|undefined = undefined;
 const nowPlaying = ref<string|undefined>(undefined);
-const isLoading = ref(true);
 const loadingSource = ref<string|undefined>(undefined);
 const hasPeaks = ref<boolean|undefined>(undefined);
 const generatePeaksIfMissing = ref(false);
@@ -102,7 +107,7 @@ async function initPlayer() {
     currentTime.value = 0;
     playing.value = false;
     finished.value = false;
-    isLoading.value = true;
+    loading.value = true;
     loadingSource.value = source.value;
 
     // Load peaks if they are available
@@ -143,6 +148,7 @@ async function initPlayer() {
         minPxPerSec: 1,
         peaks: peaks,
         url: source.value,
+        media: audioElement.value ?? undefined,
     })
 
     surfer.on('click', () => {
@@ -157,7 +163,7 @@ async function initPlayer() {
     })
 
     surfer.on('ready', () => {
-        isLoading.value = false;
+        loading.value = false;
 
         // Check if we're restoring state & should skip to a certain spot
         if (restoredState.value && restoredState.value.liveset === props.liveset.id && restoredState.value.audioQuality === quality.value) {
@@ -165,6 +171,8 @@ async function initPlayer() {
         } else {
             surfer.play();
         }
+
+        castMedia.withAudioElement(audioElement.value ?? undefined);
     })
 
     surfer.on('finish', () => {
@@ -203,16 +211,16 @@ defineExpose({
             <div class="h-32 bg-muted rounded-md overflow-hidden" id="waveform">
 
             </div>
+            <audio ref="audio" />
             <div class="flex justify-between text-xs text-muted-foreground mt-1">
                 <span>{{ formatDuration(currentTime) }}</span>
                 <span>{{ formatDuration(liveset.duration_in_seconds) }}</span>
             </div>
-
         </div>
 
         <div class="flex items-center space-x-4 w-full">
             <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full" @click.prevent="onPlayPause">
-                <Loader2 class="w-4 h-4 animate-spin" v-if="isLoading" />
+                <Loader2 class="w-4 h-4 animate-spin" v-if="loading" />
                 <Pause class="h-4 w-4" v-else-if="playing" />
                 <Play class="h-4 w-4" v-else />
             </Button>
@@ -220,7 +228,7 @@ defineExpose({
             <div class="flex-1">
                 <div class="text-sm">
                     <div class="font-medium">{{ liveset.title }}</div>
-                    <div class="text-red-600" v-if="isLoading && hasPeaks === false && generatePeaksIfMissing">No peaks available. Loading full audio file to generate waveform.
+                    <div class="text-red-600" v-if="loading && hasPeaks === false && generatePeaksIfMissing">No peaks available. Loading full audio file to generate waveform.
                         <span class="underline cursor-pointer" @click="generatePeaksIfMissing = false; initPlayer();">Disable?</span>
                     </div>
                     <div class="text-muted-foreground" v-else>{{ liveset.artist_name }} • TFW #{{ edition.number }}</div>
@@ -232,15 +240,19 @@ defineExpose({
                 <div class="text-muted-foreground">{{ nowPlaying || '?' }}</div>
             </div>
 
-            <Button variant="destructive" v-if="!isLoading && hasPeaks === false && !generatePeaksIfMissing" @click="generatePeaksIfMissing = true; initPlayer()"
+            <Button variant="destructive" v-if="!loading && hasPeaks === false && !generatePeaksIfMissing" @click="generatePeaksIfMissing = true; initPlayer()"
                     title="This liveset has no waveform data. Load the full audio file to generate waveform locally?">
                 Generate waveform?
             </Button>
 
-            <LivesetTrackList :liveset="liveset" :current-time="currentTime" button-type="ghost" v-if="liveset.tracks?.length"
-                              @go-to-time="goToTime" @now-playing="nowPlaying = $event" />
+            <div class="flex items-center space-x-1">
+                <CastButton />
 
-            <LivesetDescription :edition="edition" :liveset="liveset" button-type="ghost" v-if="liveset.description" />
+                <LivesetTrackList :liveset="liveset" :current-time="currentTime" button-type="ghost" v-if="liveset.tracks?.length"
+                                  @go-to-time="goToTime" @now-playing="nowPlaying = $event" />
+
+                <LivesetDescription :edition="edition" :liveset="liveset" button-type="ghost" v-if="liveset.description" />
+            </div>
 
             <DropdownMenu>
                 <DropdownMenuTrigger as="div">

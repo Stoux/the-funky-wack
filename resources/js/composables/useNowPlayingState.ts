@@ -8,6 +8,7 @@ let hasInitialSetup = false;
 const currentLiveset = ref<Liveset | undefined>(undefined);
 const currentEdition = ref<Edition | undefined>(undefined);
 const audioQuality = ref<LivesetQuality>('hq');
+const loading = ref(false);
 const playing = ref(false);
 const finished = ref(false);
 const autoplaying = ref(false);
@@ -111,6 +112,7 @@ export function useNowPlayingState() {
         currentLiveset,
         currentEdition,
         audioQuality,
+        loading,
         playing,
         finished,
         autoplaying,
