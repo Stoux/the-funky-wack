@@ -3,6 +3,9 @@ import {Edition, Liveset, LivesetFilesByQuality} from '@/types';
 import {ref, computed, useTemplateRef} from 'vue';
 import ListenBar from "@/components/ListenBar.vue";
 import LivesetItem from "@/components/LivesetItem.vue";
+import {Button} from "@/components/ui/button";
+import {Repeat} from 'lucide-vue-next';
+import AutoplayButton from "@/components/AutoplayButton.vue";
 
 const props = defineProps<{
     editions: Edition[],
@@ -20,6 +23,7 @@ const currentLiveset = ref<Liveset | undefined>(undefined);
 const currentEdition = ref<Edition | undefined>(undefined);
 const audioQuality = ref<keyof LivesetFilesByQuality>('hq');
 const isPlaying = ref(false);
+const isAutoplaying = ref(false);
 const listenBarElement = useTemplateRef<typeof ListenBar>('listenBarElement');
 
 
@@ -38,13 +42,55 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: keyof Liveset
     }
 };
 
+const onLivesetFinishedPlaying = () => {
+    // Early abort if autoplay is disabled.
+    if (!isAutoplaying.value || !currentEdition.value || !currentLiveset.value) {
+        return;
+    }
+
+    // Find the next liveset in our current edition
+    const nextLiveset = currentEdition.value.livesets?.find(liveset => (liveset.lineup_order ?? 0) > (currentLiveset.value?.lineup_order ?? 0) && liveset.files);
+    if (nextLiveset) {
+        playLiveset(currentEdition.value, nextLiveset);
+        return;
+    }
+
+    // Otherwise look for a liveset in the next edition(s) => Find our index
+    let currentIndex = sortedEditions.value.findIndex(edition => edition.id === currentEdition.value?.id);
+    if (currentIndex === -1) {
+        return;
+    }
+
+    // Go to the next edition (if it exists)
+    currentIndex++;
+
+    // Loop through the next editions
+    for ( ; currentIndex < sortedEditions.value.length; currentIndex++) {
+        // Check if that edition has a liveset with playable files
+        const nextEdition = sortedEditions.value[currentIndex];
+        const nextLiveset = nextEdition.livesets?.find(liveset => liveset.files);
+        if (nextLiveset) {
+            playLiveset(nextEdition, nextLiveset);
+            return;
+        }
+    }
+}
+
 
 </script>
 
 <template>
     <div class="flex h-full flex-1 flex-col gap-4 p-4" :class="{ 'pb-64': currentLiveset && currentEdition }">
-        <h2 class="text-4xl font-bold">The Funky Wack - <span
-            class="text-muted-foreground">Wacky beats, the recordings.</span></h2>
+        <div class="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center">
+            <h2 class="text-4xl font-bold">
+                The Funky Wack -
+                <span class="text-muted-foreground">Wacky beats, the recordings.</span>
+            </h2>
+
+            <div class="flex space-x-2">
+                <AutoplayButton v-model:autoplaying="isAutoplaying" />
+            </div>
+        </div>
 
         <!-- List of editions -->
         <div class="space-y-8" id="tfw">
@@ -77,6 +123,8 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: keyof Liveset
     <!-- Sticky player bar at the bottom -->
     <ListenBar v-if="currentLiveset && currentEdition" ref="listenBarElement"
                :edition="currentEdition" :liveset="currentLiveset" :qualities="qualities"
-               v-model:quality="audioQuality" v-model:playing="isPlaying"/>
+               v-model:quality="audioQuality" v-model:playing="isPlaying"
+               @finished="onLivesetFinishedPlaying"
+    />
 
 </template>

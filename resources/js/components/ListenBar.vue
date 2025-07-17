@@ -10,6 +10,10 @@ import {formatDuration} from "@/lib/utils";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import LivesetDescription from "@/components/LivesetDescription.vue";
 
+const emit = defineEmits<{
+    (e: 'finished'): void,
+}>();
+
 const props = defineProps<{
     edition: Edition,
     liveset: Liveset,
@@ -154,6 +158,7 @@ async function initPlayer() {
 
     surfer.on('finish', () => {
         playing.value = false;
+        emit('finished');
     })
     surfer.on('timeupdate', (time) => {
         currentTime.value = Math.floor( time );
