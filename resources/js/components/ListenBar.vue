@@ -5,14 +5,11 @@ import {ChevronDown, Pause, Play, Loader2} from "lucide-vue-next";
 import {Button} from "@/components/ui/button";
 import WaveSurfer from "wavesurfer.js";
 import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from "vue";
-import {Edition, Liveset, LivesetFilesByQuality} from "@/types";
+import {Edition, Liveset, LivesetFilesByQuality, LivesetQuality} from "@/types";
 import {formatDuration} from "@/lib/utils";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import LivesetDescription from "@/components/LivesetDescription.vue";
-
-const emit = defineEmits<{
-    (e: 'finished'): void,
-}>();
+import {useNowPlayingState} from "@/composables/useNowPlayingState";
 
 const props = defineProps<{
     edition: Edition,
@@ -21,23 +18,23 @@ const props = defineProps<{
     qualities: LivesetFilesByQuality,
 }>();
 
-const quality = defineModel<keyof LivesetFilesByQuality>('quality', {
-    default: 'hq',
-});
+const {
+    audioQuality: quality,
+    playing,
+    finished,
+    currentTime,
+    restoredState,
+} = useNowPlayingState();
 
-const playing = defineModel<boolean>('playing', {
-    default: false,
-});
-
-const waveInstance = ref<WaveSurfer|undefined>(undefined);
-const currentTime = ref(0);
+let waveInstance: WaveSurfer|undefined = undefined;
 const nowPlaying = ref<string|undefined>(undefined);
 const isLoading = ref(true);
+const loadingSource = ref<string|undefined>(undefined);
 const hasPeaks = ref<boolean|undefined>(undefined);
 const generatePeaksIfMissing = ref(false);
 
-const availableQualities = computed<(keyof LivesetFilesByQuality)[]>(() => {
-    const keys = Object.keys(props.qualities) as (keyof LivesetFilesByQuality)[];
+const availableQualities = computed<LivesetQuality[]>(() => {
+    const keys = Object.keys(props.qualities) as LivesetQuality[];
     return keys.filter(quality => props.liveset.files?.[quality] !== undefined);
 });
 
@@ -57,20 +54,20 @@ watch(source, () => {
 });
 
 function onPlayPause() {
-    if (!waveInstance.value) {
+    if (!waveInstance) {
         return;
     }
 
 
     if (playing.value) {
-        waveInstance.value.pause();
+        waveInstance.pause();
     } else {
-        waveInstance.value.play();
+        waveInstance.play();
     }
 }
 
 function goToTime(time: number) {
-    waveInstance.value?.play(time);
+    waveInstance?.play(time);
 }
 
 function checkAvailableQuality() {
@@ -90,7 +87,13 @@ function checkAvailableQuality() {
 }
 
 async function initPlayer() {
-    waveInstance.value?.destroy();
+    // Check if not already loading this source
+    if (source.value && source.value === loadingSource.value) {
+        return;
+    }
+
+    // Destroy the old instance
+    waveInstance?.destroy();
     if (!source.value) {
         console.log('No source');
         return;
@@ -98,7 +101,9 @@ async function initPlayer() {
 
     currentTime.value = 0;
     playing.value = false;
+    finished.value = false;
     isLoading.value = true;
+    loadingSource.value = source.value;
 
     // Load peaks if they are available
     hasPeaks.value = undefined;
@@ -123,7 +128,7 @@ async function initPlayer() {
         hasPeaks.value = false;
     }
 
-    const surfer = waveInstance.value = WaveSurfer.create({
+    const surfer = waveInstance = WaveSurfer.create({
         container: '#waveform',
         barWidth: 1,
         barHeight: 1, // the height of the wave
@@ -133,7 +138,7 @@ async function initPlayer() {
         height: 256,
         normalize: true,
         mediaControls: false,
-        hideScrollbar: true,
+        hideScrollbar: false,
         autoCenter: false,
         minPxPerSec: 1,
         peaks: peaks,
@@ -153,17 +158,23 @@ async function initPlayer() {
 
     surfer.on('ready', () => {
         isLoading.value = false;
-        surfer.play();
+
+        // Check if we're restoring state & should skip to a certain spot
+        if (restoredState.value && restoredState.value.liveset === props.liveset.id && restoredState.value.audioQuality === quality.value) {
+            surfer.play(restoredState.value.timestamp);
+        } else {
+            surfer.play();
+        }
     })
 
     surfer.on('finish', () => {
+        finished.value = true;
         playing.value = false;
-        emit('finished');
     })
+
     surfer.on('timeupdate', (time) => {
         currentTime.value = Math.floor( time );
     })
-
 }
 
 onMounted(() => {
@@ -173,13 +184,15 @@ onMounted(() => {
 
 
 onBeforeUnmount(() => {
-    waveInstance.value?.destroy();
-    waveInstance.value = undefined;
+    waveInstance?.destroy();
+    waveInstance = undefined;
 })
 
 defineExpose({
     onPlayPause,
 });
+
+
 
 </script>
 

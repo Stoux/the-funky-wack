@@ -53,6 +53,8 @@ export type LivesetFilesByQuality = {
     lossless?: string,
 };
 
+export type LivesetQuality = keyof LivesetFilesByQuality;
+
 export type Liveset = {
     id: number,
     edition_id: number,

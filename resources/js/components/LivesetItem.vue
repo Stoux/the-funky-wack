@@ -6,11 +6,11 @@ import {Button, type ButtonVariants} from "@/components/ui/button";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import {Separator} from "@/components/ui/separator";
 import LivesetDescription from "@/components/LivesetDescription.vue";
-import {Edition, Liveset, LivesetFilesByQuality} from "@/types";
+import {Edition, Liveset, LivesetQuality} from "@/types";
 import {computed} from "vue";
 
 const emit = defineEmits<{
-    (e: 'play', quality?: keyof LivesetFilesByQuality): void,
+    (e: 'play', quality?: LivesetQuality): void,
 }>();
 
 const props = defineProps<{
@@ -24,7 +24,7 @@ const canPlay = computed(() => !!props.liveset.files)
 const iconButtonType = computed<ButtonVariants['variant']>(() => props.isCurrent ? 'default' : 'outline');
 
 
-const play = (quality?: keyof LivesetFilesByQuality) => {
+const play = (quality?: LivesetQuality) => {
     emit('play', quality);
 }
 

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import {Edition, Liveset, LivesetFilesByQuality} from '@/types';
-import {ref, computed, useTemplateRef} from 'vue';
+import {Edition, Liveset, LivesetFilesByQuality, LivesetQuality} from '@/types';
+import {computed, useTemplateRef, watch} from 'vue';
 import ListenBar from "@/components/ListenBar.vue";
 import LivesetItem from "@/components/LivesetItem.vue";
-import {Button} from "@/components/ui/button";
-import {Repeat} from 'lucide-vue-next';
 import AutoplayButton from "@/components/AutoplayButton.vue";
+import ContinuePlayingBar from "@/components/ContinuePlayingBar.vue";
+import {useNowPlayingState} from "@/composables/useNowPlayingState";
 
 const props = defineProps<{
     editions: Edition[],
@@ -19,20 +19,34 @@ const sortedEditions = computed(() => {
 });
 
 // State for the currently playing liveset
-const currentLiveset = ref<Liveset | undefined>(undefined);
-const currentEdition = ref<Edition | undefined>(undefined);
-const audioQuality = ref<keyof LivesetFilesByQuality>('hq');
-const isPlaying = ref(false);
-const isAutoplaying = ref(false);
+const {
+    currentLiveset,
+    currentEdition,
+    audioQuality,
+    playing,
+    finished,
+    autoplaying,
+    restoredState,
+} = useNowPlayingState();
+
 const listenBarElement = useTemplateRef<typeof ListenBar>('listenBarElement');
 
+watch(finished, isFinished => {
+    if (isFinished) {
+        possiblyAutoplayNextLiveset();
+    }
+})
 
 // Play a liveset
-const playLiveset = (edition: Edition, liveset: Liveset, quality?: keyof LivesetFilesByQuality) => {
+const playLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, keepRestoredState: boolean = false) => {
     if (currentEdition.value?.id === edition.id && currentLiveset.value?.id === liveset.id && ( quality === undefined || quality === audioQuality.value ) ) {
         // Play/pausing the current liveset.
         listenBarElement.value?.onPlayPause();
         return;
+    }
+
+    if (!keepRestoredState) {
+        restoredState.value = undefined;
     }
 
     currentEdition.value = edition;
@@ -42,9 +56,9 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: keyof Liveset
     }
 };
 
-const onLivesetFinishedPlaying = () => {
+const possiblyAutoplayNextLiveset = () => {
     // Early abort if autoplay is disabled.
-    if (!isAutoplaying.value || !currentEdition.value || !currentLiveset.value) {
+    if (!autoplaying.value || !currentEdition.value || !currentLiveset.value) {
         return;
     }
 
@@ -88,7 +102,7 @@ const onLivesetFinishedPlaying = () => {
             </h2>
 
             <div class="flex space-x-2">
-                <AutoplayButton v-model:autoplaying="isAutoplaying" />
+                <AutoplayButton v-model:autoplaying="autoplaying" />
             </div>
         </div>
 
@@ -112,7 +126,7 @@ const onLivesetFinishedPlaying = () => {
                     <LivesetItem v-for="liveset in edition.livesets" :key="liveset.id"
                                  :edition="edition" :liveset="liveset"
                                  :is-current="liveset.id === currentLiveset?.id"
-                                 :is-playing="liveset.id === currentLiveset?.id && isPlaying"
+                                 :is-playing="liveset.id === currentLiveset?.id && playing"
                                  @play="quality => playLiveset(edition, liveset, quality)"
                                  />
                 </div>
@@ -123,8 +137,8 @@ const onLivesetFinishedPlaying = () => {
     <!-- Sticky player bar at the bottom -->
     <ListenBar v-if="currentLiveset && currentEdition" ref="listenBarElement"
                :edition="currentEdition" :liveset="currentLiveset" :qualities="qualities"
-               v-model:quality="audioQuality" v-model:playing="isPlaying"
-               @finished="onLivesetFinishedPlaying"
     />
+
+    <ContinuePlayingBar :editions="editions" @play="(edition, liveset, audioQuality) => playLiveset(edition, liveset, audioQuality, true)" />
 
 </template>
