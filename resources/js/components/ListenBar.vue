@@ -12,6 +12,7 @@ import LivesetDescription from "@/components/LivesetDescription.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
 import CastButton from "@/components/CastButton.vue";
 import {useCastMedia} from "@/composables/useCastMedia";
+import {useTracklistNowPlaying} from "@/composables/useTracklistNowPlaying";
 
 const props = defineProps<{
     edition: Edition,
@@ -29,11 +30,15 @@ const {
     restoredState,
 } = useNowPlayingState();
 
+const {
+    nowPlayingSections,
+    nowPlayingTrack,
+} = useTracklistNowPlaying();
+
 const castMedia = useCastMedia();
 const audioElement = useTemplateRef('audio');
 
 let waveInstance: WaveSurfer|undefined = undefined;
-const nowPlaying = ref<string|undefined>(undefined);
 const loadingSource = ref<string|undefined>(undefined);
 const hasPeaks = ref<boolean|undefined>(undefined);
 const generatePeaksIfMissing = ref(false);
@@ -58,22 +63,28 @@ watch(source, () => {
     initPlayer();
 });
 
-function onPlayPause() {
-    if (!waveInstance) {
+watch(playing, shouldBePlaying => {
+    // Early abort if no wavesurfer, still loading the track or we're already in that isPlaying state
+    if (!waveInstance || loading.value || shouldBePlaying === waveInstance.isPlaying()) {
         return;
     }
 
-
-    if (playing.value) {
-        waveInstance.pause();
-    } else {
+    // Note: the isPlaying === what we should have as state
+    if (shouldBePlaying) {
         waveInstance.play();
+    } else {
+        waveInstance.pause();
     }
-}
+});
 
-function goToTime(time: number) {
-    waveInstance?.play(time);
-}
+watch(currentTime, shouldBeAtTime => {
+    // Early abort if no wavesurfer, still loading the track or we're already (or almost) at that time
+    if (!waveInstance || loading.value || Math.abs(waveInstance.getCurrentTime() - shouldBeAtTime) <= 2) {
+        return;
+    }
+
+    waveInstance.play(shouldBeAtTime);
+})
 
 function checkAvailableQuality() {
     if (source.value) {
@@ -104,10 +115,10 @@ async function initPlayer() {
         return;
     }
 
-    currentTime.value = 0;
     playing.value = false;
     finished.value = false;
     loading.value = true;
+    currentTime.value = 0;
     loadingSource.value = source.value;
 
     // Super hacky: Disable remote playback on the audio element to force the remote API to realize the source URL has changed, otherwise it will just play the previous liveset :').
@@ -182,10 +193,11 @@ async function initPlayer() {
         }
 
         // Check if we're restoring state & should skip to a certain spot
+        // TODO: Remove this, restoredState should just set the currentTime
         if (restoredState.value && restoredState.value.liveset === props.liveset.id && restoredState.value.audioQuality === quality.value) {
             surfer.play(restoredState.value.timestamp);
         } else {
-            surfer.play();
+            surfer.play(currentTime.value);
         }
 
         castMedia.withAudioElement(audioElement.value ?? undefined);
@@ -212,10 +224,6 @@ onBeforeUnmount(() => {
     waveInstance = undefined;
 })
 
-defineExpose({
-    onPlayPause,
-});
-
 
 
 </script>
@@ -235,7 +243,7 @@ defineExpose({
         </div>
 
         <div class="flex items-center space-x-4 w-full">
-            <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full" @click.prevent="onPlayPause">
+            <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full" @click.prevent="playing = !playing">
                 <Loader2 class="w-4 h-4 animate-spin" v-if="loading" />
                 <Pause class="h-4 w-4" v-else-if="playing" />
                 <Play class="h-4 w-4" v-else />
@@ -253,7 +261,7 @@ defineExpose({
 
             <div class="text-sm text-right hidden lg:block" v-if="liveset.tracks?.length">
                 <div class="font-medium">Now playing</div>
-                <div class="text-muted-foreground">{{ nowPlaying || '?' }}</div>
+                <div class="text-muted-foreground">{{ nowPlayingTrack?.title || '?' }}</div>
             </div>
 
             <Button variant="destructive" v-if="!loading && hasPeaks === false && !generatePeaksIfMissing" @click="generatePeaksIfMissing = true; initPlayer()"
@@ -264,8 +272,7 @@ defineExpose({
             <div class="flex items-center space-x-1">
                 <CastButton />
 
-                <LivesetTrackList :liveset="liveset" :current-time="currentTime" button-type="ghost" v-if="liveset.tracks?.length"
-                                  @go-to-time="goToTime" @now-playing="nowPlaying = $event" />
+                <LivesetTrackList :liveset="liveset" :current-time="currentTime" button-type="ghost" v-if="liveset.tracks?.length" />
 
                 <LivesetDescription :edition="edition" :liveset="liveset" button-type="ghost" v-if="liveset.description" />
             </div>

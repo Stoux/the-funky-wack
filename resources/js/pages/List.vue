@@ -29,8 +29,6 @@ const {
     restoredState,
 } = useNowPlayingState();
 
-const listenBarElement = useTemplateRef<typeof ListenBar>('listenBarElement');
-
 watch(finished, isFinished => {
     if (isFinished) {
         possiblyAutoplayNextLiveset();
@@ -41,7 +39,7 @@ watch(finished, isFinished => {
 const playLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, keepRestoredState: boolean = false) => {
     if (currentEdition.value?.id === edition.id && currentLiveset.value?.id === liveset.id && ( quality === undefined || quality === audioQuality.value ) ) {
         // Play/pausing the current liveset.
-        listenBarElement.value?.onPlayPause();
+        playing.value = !playing.value;
         return;
     }
 
@@ -135,7 +133,7 @@ const possiblyAutoplayNextLiveset = () => {
     </div>
 
     <!-- Sticky player bar at the bottom -->
-    <ListenBar v-if="currentLiveset && currentEdition" ref="listenBarElement"
+    <ListenBar v-if="currentLiveset && currentEdition"
                :edition="currentEdition" :liveset="currentLiveset" :qualities="qualities"
     />
 

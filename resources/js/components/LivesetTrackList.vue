@@ -16,16 +16,12 @@ import {computed, nextTick, onMounted, ref, useTemplateRef, watch} from "vue";
 import {formatDuration} from "@/lib/utils";
 import {ScrollArea} from "@/components/ui/scroll-area";
 import {useTemplateRefsList} from "@vueuse/core";
+import {useTracklistNowPlaying} from "@/composables/useTracklistNowPlaying";
+import {useNowPlayingState} from "@/composables/useNowPlayingState";
 
 const props = defineProps<{
     liveset: Liveset;
-    currentTime?: number,
     buttonType?: ButtonVariants['variant'],
-}>();
-
-const emits = defineEmits<{
-    (e: 'nowPlaying', title: string|undefined): void,
-    (e: 'goToTime', timestamp: number): void,
 }>();
 
 const isOpen = ref(false);
@@ -33,44 +29,30 @@ const isOpen = ref(false);
 const scrollContainer = useTemplateRef<HTMLDivElement>('scrollContainer');
 const trackElements = useTemplateRefsList<HTMLDivElement>();
 
+const {
+    currentLiveset,
+    currentTime,
+} = useNowPlayingState();
 
+const {
+    nowPlayingTrack,
+} = useTracklistNowPlaying();
+
+
+const isCurrentLiveset = computed(() => {
+    return currentLiveset.value?.id === props.liveset.id;
+})
+
+/**
+ * The index of the currently playing track in the original tracklist.
+ */
 const nowPlayingIndex = computed<number|undefined>(() => {
-    if (props.currentTime === undefined || props.liveset.tracks === undefined) {
+    if (!isCurrentLiveset.value) {
         return undefined;
     }
 
-    let playingIndex: number|undefined = undefined;
-    for (let i = 0; i < props.liveset.tracks.length; i++) {
-        const track = props.liveset.tracks[i];
-
-        if (track.timestamp === undefined) {
-            continue;
-        }
-
-        if (track.timestamp <= props.currentTime) {
-            playingIndex = i;
-        }
-
-        if (track.timestamp > props.currentTime) {
-            break;
-        }
-    }
-
-    return playingIndex;
+    return nowPlayingTrack.value?.originalTrackIndex;
 })
-
-const nowPlaying = computed(() => {
-    if (props.liveset.tracks === undefined || nowPlayingIndex.value === undefined) {
-        return undefined;
-    }
-
-    return props.liveset.tracks[nowPlayingIndex.value].title;
-})
-
-
-watch(nowPlaying, () => {
-    emits('nowPlaying', nowPlaying.value)
-});
 
 watch(isOpen, open => {
     if (!open || nowPlayingIndex.value === undefined) {
@@ -92,9 +74,15 @@ watch(isOpen, open => {
     });
 });
 
-onMounted(() => {
-    emits('nowPlaying', nowPlaying.value);
-});
+function goToTime(timestamp: number) {
+    if (!isCurrentLiveset.value) {
+        return;
+    }
+
+    // This will also start playing the track if not already playing.
+    currentTime.value = timestamp;
+}
+
 </script>
 
 <template>
@@ -118,7 +106,7 @@ onMounted(() => {
                 <div class="flex flex-col" v-if="liveset.tracks?.length" ref="listDiv">
                     <div class="px-4 py-2" v-for="(track, index) of liveset.tracks" :key="track.id" ref="trackElements">
                         <div :class="{ 'text-green-600 js-now-playing': index === nowPlayingIndex, 'text-muted-foreground': index !== nowPlayingIndex, 'cursor-pointer': index !== undefined }"
-                             @click="emits('goToTime', track.timestamp || 0)"
+                             @click="goToTime(track.timestamp ?? 0)"
                              v-if="track.timestamp !== null">
                             #{{ track.order }} &bull; {{ formatDuration(track.timestamp)}}
                         </div>
