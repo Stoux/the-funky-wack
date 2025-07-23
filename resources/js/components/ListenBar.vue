@@ -12,7 +12,9 @@ import LivesetDescription from "@/components/LivesetDescription.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
 import CastButton from "@/components/CastButton.vue";
 import {useCastMedia} from "@/composables/useCastMedia";
+import HoverPlugin from "wavesurfer.js/plugins/hover";
 import {useTracklistNowPlaying} from "@/composables/useTracklistNowPlaying";
+import {determineNowPlayingTrack} from "@/lib/tracklist.utils";
 
 const props = defineProps<{
     edition: Edition,
@@ -150,6 +152,8 @@ async function initPlayer() {
         hasPeaks.value = false;
     }
 
+    let lastShownTrackIndex: number|undefined = undefined;
+
     const surfer = waveInstance = WaveSurfer.create({
         container: '#waveform',
         barWidth: 1,
@@ -167,6 +171,34 @@ async function initPlayer() {
         peaks: peaks,
         url: source.value,
         media: audioElement.value ?? undefined,
+        plugins: [
+            HoverPlugin.create({
+                lineColor: '#ff0000',
+                lineWidth: 2,
+                labelBackground: '#555',
+                labelColor: '#fff',
+                labelSize: '11px',
+                formatTimeCallback: (seconds) => {
+                    seconds = Math.floor(seconds);
+
+                    lastShownTrackIndex = determineNowPlayingTrack(
+                        nowPlayingSections.value,
+                        seconds,
+                        lastShownTrackIndex,
+                    );
+
+                    // Transform into a duration timestamp (hh:mm:ss)
+                    const duration = formatDuration(seconds);
+                    if (!lastShownTrackIndex) {
+                        return duration;
+                    }
+
+                    // We actually do know the track
+                    const track = nowPlayingSections.value[lastShownTrackIndex];
+                    return `${duration} | ${track.title}`;
+                },
+            })
+        ]
     })
 
     surfer.on('click', () => {
