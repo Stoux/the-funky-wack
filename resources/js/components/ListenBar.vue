@@ -111,7 +111,7 @@ async function initPlayer() {
     loadingSource.value = source.value;
 
     // Super hacky: Disable remote playback on the audio element to force the remote API to realize the source URL has changed, otherwise it will just play the previous liveset :').
-    if (castMedia.casting && audioElement.value) {
+    if (castMedia.casting.value && audioElement.value) {
         castMedia.casting.value = 'reconnecting';
         audioElement.value.disableRemotePlayback = true;
     }
