@@ -155,12 +155,13 @@ async function initPlayer() {
         barWidth: 1,
         barHeight: 1, // the height of the wave
         barGap: 2,
+        barAlign: 'bottom',
         progressColor: '#57ECED',
         waveColor: '#B4B7BC',
-        height: 256,
+        height: 128,
         normalize: true,
         mediaControls: false,
-        hideScrollbar: false,
+        hideScrollbar: true,
         autoCenter: false,
         minPxPerSec: 1,
         peaks: peaks,
@@ -232,7 +233,7 @@ onBeforeUnmount(() => {
     <div class="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex flex-col gap-4 z-50">
 
         <div class="flex-1">
-            <div class="h-32 bg-muted rounded-md overflow-hidden" id="waveform">
+            <div class="h-32 bg-muted rounded-md relative" id="waveform">
 
             </div>
             <audio ref="audio" />
