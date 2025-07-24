@@ -102,7 +102,7 @@ function goToTime(timestamp: number) {
                 </SheetDescription>
             </SheetHeader>
 
-            <ScrollArea class="h-full" ref="scrollContainer">
+            <ScrollArea class="h-full flex-1 overflow-y-auto" ref="scrollContainer">
                 <div class="flex flex-col" v-if="liveset.tracks?.length" ref="listDiv">
                     <div class="px-4 py-2" v-for="(track, index) of liveset.tracks" :key="track.id" ref="trackElements">
                         <div :class="{ 'text-green-600 js-now-playing': index === nowPlayingIndex, 'text-muted-foreground': index !== nowPlayingIndex, 'cursor-pointer': index !== undefined }"
