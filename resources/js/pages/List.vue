@@ -23,6 +23,7 @@ const {
     currentLiveset,
     currentEdition,
     audioQuality,
+    currentTime,
     playing,
     finished,
     autoplaying,
@@ -49,6 +50,7 @@ const playLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQualit
 
     currentEdition.value = edition;
     currentLiveset.value = liveset;
+    currentTime.value = 0;
     if (quality) {
         audioQuality.value = quality;
     }

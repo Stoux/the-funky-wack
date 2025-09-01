@@ -120,7 +120,6 @@ async function initPlayer() {
     playing.value = false;
     finished.value = false;
     loading.value = true;
-    currentTime.value = 0;
     loadingSource.value = source.value;
 
     // Super hacky: Disable remote playback on the audio element to force the remote API to realize the source URL has changed, otherwise it will just play the previous liveset :').
@@ -242,6 +241,11 @@ async function initPlayer() {
     })
 
     surfer.on('timeupdate', (time) => {
+        if (loading.value) {
+            // Ignore initial state updates when loading
+            return;
+        }
+
         currentTime.value = Math.floor( time );
     })
 }
