@@ -32,6 +32,7 @@ abstract class EditionRequest extends FormRequest
             'date' => 'required|date',
             'poster_path' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'empty_note' => 'nullable|string|max:255',
         ];
     }
 }

@@ -16,6 +16,7 @@ class Edition extends Model
         'date',
         'poster_path',
         'notes',
+        'empty_note',
     ];
 
     protected function casts()

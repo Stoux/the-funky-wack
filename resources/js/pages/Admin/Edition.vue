@@ -16,6 +16,7 @@ const isNewEdition = !props.edition;
 const form = useForm({
     number: props.edition?.number ?? '',
     tag_line: props.edition?.tag_line ?? '',
+    empty_note: props.edition?.empty_note ?? '',
     date: props.edition?.date ? new Date(props.edition.date).toISOString().split('T')[0] : '',
     poster_path: props.edition?.poster_path ?? '',
     notes: props.edition?.notes ?? '',
@@ -93,6 +94,20 @@ const breadcrumbs: BreadcrumbItem[] = [
                         </div>
 
                         <div class="flex flex-col gap-2">
+                            <Label for="tag_line">Empty note (no livesets)</Label>
+                            <Input
+                                id="empty_note"
+                                v-model="form.empty_note"
+                                type="text"
+                                :disabled="form.processing"
+                            />
+                            <div v-if="form.errors.empty_note" class="text-sm text-red-500">{{
+                                    form.errors.empty_note
+                                }}
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2 md:col-span-2">
                             <Label for="poster_path">Poster Path</Label>
                             <Input
                                 id="poster_path"

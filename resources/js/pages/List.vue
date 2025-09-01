@@ -117,16 +117,16 @@ const possiblyAutoplayNextLiveset = () => {
 
                 <!-- Livesets for this edition -->
                 <div class="space-y-2">
-                    <div v-if="!edition.livesets?.length">
-                        <h3 class="font-medium">No livesets (yet).</h3>
-                    </div>
-
                     <LivesetItem v-for="liveset in edition.livesets" :key="liveset.id"
                                  :edition="edition" :liveset="liveset"
                                  :is-current="liveset.id === currentLiveset?.id"
                                  :is-playing="liveset.id === currentLiveset?.id && playing"
                                  @play="quality => playLiveset(edition, liveset, quality)"
                                  />
+
+                    <div v-if="!edition.livesets?.length || edition.empty_note">
+                        <h3 class="font-medium text-muted-foreground">{{ edition.empty_note ?? 'No livesets (yet).' }}</h3>
+                    </div>
                 </div>
             </div>
         </div>

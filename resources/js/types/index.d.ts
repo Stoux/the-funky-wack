@@ -44,6 +44,7 @@ export type Edition = {
     poster_path?: string,
     notes?: string,
     livesets?: Liveset[],
+    empty_note?: string,
 }
 
 
