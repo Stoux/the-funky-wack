@@ -113,8 +113,8 @@ trackSearch.withEditions(props.editions);
             <div v-for="edition in sortedEditions" :key="edition.id" class="space-y-4" :id="'tfw' + edition.number">
                 <!-- Edition header -->
                 <div class="border-b pb-2">
-                    <h2 class="text-2xl font-bold">TFW <a :href="'#tfw' + edition.number" class="cursor-pointer">#{{ edition.number }}</a> - <span
-                        class="text-muted-foreground">{{ edition.tag_line }}</span></h2>
+                    <h2 class="text-2xl font-bold">TFW <a :href="'#tfw' + edition.number" class="cursor-pointer">#{{ edition.number }}</a> <span
+                        class="text-muted-foreground">- {{ edition.tag_line }}</span></h2>
                     <p class="text-sm text-muted-foreground">{{ edition.date }}</p>
                     <p class="text-sm text-muted-foreground" v-if="edition.notes">{{ edition.notes }}</p>
                 </div>
