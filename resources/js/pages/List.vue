@@ -6,6 +6,8 @@ import LivesetItem from "@/components/LivesetItem.vue";
 import AutoplayButton from "@/components/AutoplayButton.vue";
 import ContinuePlayingBar from "@/components/ContinuePlayingBar.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
+import TrackSearch from "@/components/TrackSearch.vue";
+import {useTrackSearch} from "@/composables/useTrackSearch";
 
 const props = defineProps<{
     editions: Edition[],
@@ -90,6 +92,9 @@ const possiblyAutoplayNextLiveset = () => {
     }
 }
 
+// Pass the editions to the track search
+const trackSearch = useTrackSearch();
+trackSearch.withEditions(props.editions);
 
 </script>
 
@@ -101,8 +106,9 @@ const possiblyAutoplayNextLiveset = () => {
                 <span class="text-muted-foreground">Wacky beats, the recordings.</span>
             </h2>
 
-            <div class="flex space-x-2">
+            <div class="flex space-y-2 md:space-y-0 space-x-2 flex-col md:flex-row">
                 <AutoplayButton v-model:autoplaying="autoplaying" />
+                <TrackSearch />
             </div>
         </div>
 
