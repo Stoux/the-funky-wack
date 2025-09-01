@@ -29,7 +29,6 @@ const {
     playing,
     finished,
     currentTime,
-    restoredState,
 } = useNowPlayingState();
 
 const {
@@ -224,13 +223,8 @@ async function initPlayer() {
             })
         }
 
-        // Check if we're restoring state & should skip to a certain spot
-        // TODO: Remove this, restoredState should just set the currentTime
-        if (restoredState.value && restoredState.value.liveset === props.liveset.id && restoredState.value.audioQuality === quality.value) {
-            surfer.play(restoredState.value.timestamp);
-        } else {
-            surfer.play(currentTime.value);
-        }
+        // PLay the track at the last configured time (probably 0 if new liveset or a given timestamp when restoring / playing specific track)
+        surfer.play(currentTime.value);
 
         castMedia.withAudioElement(audioElement.value ?? undefined);
     })

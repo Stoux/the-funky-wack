@@ -8,7 +8,7 @@ import {computed} from "vue";
 import {Edition, Liveset} from "@/types";
 
 const emit = defineEmits<{
-    (e: 'play', edition: Edition, liveset: Liveset, audioQuality: string): void,
+    (e: 'play', edition: Edition, liveset: Liveset, audioQuality: string, atTime: number): void,
 }>();
 
 const {
@@ -48,7 +48,7 @@ const resolved = computed<{
 
 function play() {
     if (resolved.value && restoredState.value) {
-        emit('play', resolved.value.edition, resolved.value.liveset, restoredState.value.audioQuality);
+        emit('play', resolved.value.edition, resolved.value.liveset, restoredState.value.audioQuality, restoredState.value.timestamp);
     }
 }
 

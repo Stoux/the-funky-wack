@@ -39,20 +39,16 @@ watch(finished, isFinished => {
 })
 
 // Play a liveset
-const playLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, keepRestoredState: boolean = false) => {
+const playLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, atTime: number = 0) => {
     if (currentEdition.value?.id === edition.id && currentLiveset.value?.id === liveset.id && ( quality === undefined || quality === audioQuality.value ) ) {
         // Play/pausing the current liveset.
         playing.value = !playing.value;
         return;
     }
 
-    if (!keepRestoredState) {
-        restoredState.value = undefined;
-    }
-
     currentEdition.value = edition;
     currentLiveset.value = liveset;
-    currentTime.value = 0;
+    currentTime.value = atTime;
     if (quality) {
         audioQuality.value = quality;
     }
@@ -145,6 +141,6 @@ trackSearch.withEditions(props.editions);
                :edition="currentEdition" :liveset="currentLiveset" :qualities="qualities"
     />
 
-    <ContinuePlayingBar :editions="editions" @play="(edition, liveset, audioQuality) => playLiveset(edition, liveset, audioQuality, true)" />
+    <ContinuePlayingBar :editions="editions" @play="(edition, liveset, audioQuality, atTime) => playLiveset(edition, liveset, audioQuality, atTime)" />
 
 </template>
