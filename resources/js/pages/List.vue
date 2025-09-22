@@ -114,10 +114,9 @@ trackSearch.withEditions(props.editions);
                 <!-- Edition header -->
 
                 <div class="flex w-full space-x-2 items-end">
-                    <a v-if="edition.smallest_poster_url && edition.poster_url"
+                    <a v-if="edition.poster_srcset_urls?.length && edition.poster_url"
                        :href="edition.poster_url" target="_blank" class="cursor-pointer h-full" title="View original poster">
                         <img
-                            :src="edition.smallest_poster_url"
                             :srcset="edition.poster_srcset_urls?.map(p => `${p.url} ${p.width}w`).join(', ')"
                             sizes="96px"
                             :alt="`TFW #${edition.number} poster`"

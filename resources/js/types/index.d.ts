@@ -49,7 +49,6 @@ export type Edition = {
         url: string,
         width: number,
     }[],
-    smallest_poster_url?: string,
 }
 
 
