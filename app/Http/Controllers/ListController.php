@@ -16,10 +16,8 @@ class ListController extends Controller
     public function index()
     {
         $editions = Edition::all()->map(fn($edition) => [
-            ...$edition->except([
-                'poster_path',
-                'poster_srcset',
-            ]),
+            ...$edition->toArray(),
+            'smallest_poster_url' => $edition->poster_srcset_urls->get(0)['url'] ?? null,
             'date' => $edition->date?->format('j M Y'),
             'livesets' => $edition->livesets->sortBy('lineup_order')->map(fn(Liveset $liveset) => [
                 ...$liveset->toArray(),
