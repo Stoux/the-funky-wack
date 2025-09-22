@@ -5,7 +5,7 @@ import {Head, Link, useForm} from '@inertiajs/vue3';
 import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';
 import {Input} from '@/components/ui/input';
-import {computed, useTemplateRef} from 'vue';
+import {computed, ref, useTemplateRef, watch} from 'vue';
 import {File, Rotate3D} from 'lucide-vue-next'
 import axios from 'axios';
 import {formatDuration, parseDuration} from "@/lib/utils";
@@ -44,6 +44,16 @@ const form = useForm({
     soundcloud_url: props.liveset?.soundcloud_url ?? '',
     tracks_text: formatTracksForTextarea(props.liveset?.tracks),
 });
+
+const durationAsFormattedTime = ref(formatDuration(props.liveset?.duration_in_seconds, false, ''));
+
+watch(() => props.liveset, () => {
+    durationAsFormattedTime.value = formatDuration(form.duration_in_seconds, false, '');
+});
+
+watch(durationAsFormattedTime, duration => {
+    form.duration_in_seconds = parseDuration(duration);
+})
 
 const cueInput = useTemplateRef<HTMLInputElement>('cueInput');
 
@@ -198,8 +208,7 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                             <Label for="duration">Duration (MM:SS)</Label>
                             <Input
                                 id="duration"
-                                :model-value="formatDuration(form.duration_in_seconds)"
-                                @update:model-value="form.duration_in_seconds = parseDuration($event.target.value)"
+                                v-model="durationAsFormattedTime"
                                 type="text"
                                 placeholder="00:00"
                                 :disabled="form.processing"
