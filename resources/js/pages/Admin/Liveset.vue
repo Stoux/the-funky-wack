@@ -18,7 +18,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const isNewLiveset = !props.liveset;
+const isNewLiveset = computed(() => !props.liveset);
 
 // Format tracks for display in textarea
 const formatTracksForTextarea = (tracks: LivesetTrack[] | undefined): string => {
@@ -86,8 +86,10 @@ const attemptFixTrackList = () => {
 }
 
 const handleSubmit = () => {
-    if (isNewLiveset) {
-        form.post(route('admin.livesets.store'));
+    if (isNewLiveset.value) {
+        form.post(route('admin.livesets.store'), {
+            replace: true,
+        });
     } else {
         form.patch(route('admin.livesets.update', props.liveset?.id));
     }
@@ -107,8 +109,8 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
         href: route('admin.livesets'),
     },
     {
-        title: isNewLiveset ? 'New Liveset' : props.liveset?.title || 'Liveset',
-        href: isNewLiveset ? route('admin.livesets.create') : route('admin.livesets.view', props.liveset?.id),
+        title: isNewLiveset.value ? 'New Liveset' : props.liveset?.title || 'Liveset',
+        href: isNewLiveset.value ? route('admin.livesets.create') : route('admin.livesets.view', props.liveset?.id),
     },
 ]);
 </script>
