@@ -116,7 +116,13 @@ trackSearch.withEditions(props.editions);
                 <div class="flex w-full space-x-2 items-end">
                     <a v-if="edition.smallest_poster_url && edition.poster_url"
                        :href="edition.poster_url" target="_blank" class="cursor-pointer h-full" title="View original poster">
-                        <img :src="edition.smallest_poster_url" :alt="`TFW #${edition.number} poster`" class="rounded-lg h-full w-full max-w-24 max-h-32 object-contain" />
+                        <img
+                            :src="edition.smallest_poster_url"
+                            :srcset="edition.poster_srcset_urls?.map(p => `${p.url} ${p.width}w`).join(', ')"
+                            sizes="96px"
+                            :alt="`TFW #${edition.number} poster`"
+                            class="rounded-lg h-full w-full max-w-24 max-h-32 object-contain"
+                        />
                     </a>
                     <div class="border-b pb-2 h-full">
                         <h2 class="text-2xl font-bold">TFW <a :href="'#tfw' + edition.number" class="cursor-pointer">#{{ edition.number }}</a> <span

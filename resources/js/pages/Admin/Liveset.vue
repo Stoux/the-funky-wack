@@ -130,8 +130,9 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold">{{ isNewLiveset ? 'New Liveset' : liveset?.title || 'Liveset' }}</h1>
+            <div class="flex items-center space-x-2">
+                <h1 class="text-2xl font-bold grow">{{ isNewLiveset ? 'New Liveset' : liveset?.title || 'Liveset' }}</h1>
+
                 <Link :href="route('admin.livesets.files', liveset.id)" v-if="liveset">
                     <Button variant="outline" class="cursor-pointer">
                         View files ({{ fileCount }})
