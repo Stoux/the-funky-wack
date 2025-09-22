@@ -123,7 +123,7 @@ trackSearch.withEditions(props.editions);
                             class="rounded-lg h-full w-full max-w-24 max-h-32 object-contain"
                         />
                     </a>
-                    <div class="border-b pb-2 h-full">
+                    <div class="border-b pb-2 h-full grow">
                         <h2 class="text-2xl font-bold">TFW <a :href="'#tfw' + edition.number" class="cursor-pointer">#{{ edition.number }}</a> <span
                             class="text-muted-foreground">- {{ edition.tag_line }}</span></h2>
                         <p class="text-sm text-muted-foreground">{{ edition.date }}</p>
