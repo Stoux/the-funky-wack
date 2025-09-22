@@ -34,7 +34,7 @@ export function determineNowPlayingTrack(
     }
 
     // Check if we're still playing the previously determined track
-    const nowPlayingTrack = nowPlayingTrackIndex ? tracks[nowPlayingTrackIndex] : undefined;
+    const nowPlayingTrack = nowPlayingTrackIndex !== undefined ? tracks[nowPlayingTrackIndex] : undefined;
     if (nowPlayingTrack && isPlaying(nowPlayingTrack, currentTime)) {
         return nowPlayingTrackIndex;
     }

@@ -187,7 +187,7 @@ async function initPlayer() {
 
                     // Transform into a duration timestamp (hh:mm:ss)
                     const duration = formatDuration(seconds);
-                    if (!lastShownTrackIndex) {
+                    if (lastShownTrackIndex === undefined) {
                         return duration;
                     }
 
