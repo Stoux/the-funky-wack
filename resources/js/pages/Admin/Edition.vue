@@ -5,13 +5,13 @@ import {Head, useForm} from '@inertiajs/vue3';
 import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';
 import {Input} from '@/components/ui/input';
+import {computed} from "vue";
 
-interface Props {
+const props = defineProps<{
     edition: Edition | null;
-}
+}>();
 
-const props = defineProps<Props>();
-const isNewEdition = !props.edition;
+const isNewEdition = computed(() => !props.edition);
 
 const form = useForm({
     number: props.edition?.number ?? '',
@@ -23,23 +23,23 @@ const form = useForm({
 });
 
 const handleSubmit = () => {
-    if (isNewEdition) {
+    if (isNewEdition.value) {
         form.post(route('admin.editions.store'));
     } else {
         form.patch(route('admin.editions.update', props.edition?.id));
     }
 };
 
-const breadcrumbs: BreadcrumbItem[] = [
+const breadcrumbs = computed<BreadcrumbItem[]>(() => [
     {
         title: 'Editions',
         href: route('admin.editions'),
     },
     {
-        title: isNewEdition ? 'New Edition' : `Edition #${props.edition?.number}`,
-        href: isNewEdition ? route('admin.editions.create') : route('admin.editions.view', props.edition?.id),
+        title: isNewEdition.value ? 'New Edition' : `Edition #${props.edition?.number}`,
+        href: isNewEdition.value ? route('admin.editions.create') : route('admin.editions.view', props.edition?.id),
     },
-];
+]);
 </script>
 
 <template>
