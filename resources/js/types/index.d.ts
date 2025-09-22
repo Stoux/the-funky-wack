@@ -41,10 +41,14 @@ export type Edition = {
     number: string,
     tag_line?: string,
     date?: string,
-    poster_path?: string,
     notes?: string,
     livesets?: Liveset[],
     empty_note?: string,
+    poster_url?: string,
+    poster_srcset_urls?: {
+        url: string,
+        width: number,
+    }[],
 }
 
 

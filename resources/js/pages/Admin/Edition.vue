@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import {type BreadcrumbItem, type Edition} from '@/types';
-import {Head, useForm} from '@inertiajs/vue3';
+import {Head, Link, useForm} from '@inertiajs/vue3';
 import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';
 import {Input} from '@/components/ui/input';
@@ -18,7 +18,6 @@ const form = useForm({
     tag_line: props.edition?.tag_line ?? '',
     empty_note: props.edition?.empty_note ?? '',
     date: props.edition?.date ? new Date(props.edition.date).toISOString().split('T')[0] : '',
-    poster_path: props.edition?.poster_path ?? '',
     notes: props.edition?.notes ?? '',
 });
 
@@ -47,8 +46,14 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
-            <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold">{{ isNewEdition ? 'New Edition' : `Edition #${edition?.number}` }}</h1>
+            <div class="flex items-center space-x-2">
+                <h1 class="text-2xl font-bold grow">{{ isNewEdition ? 'New Edition' : `Edition #${edition?.number}` }}</h1>
+
+                <Link :href="route('admin.editions.poster', edition.id)" v-if="edition">
+                    <Button variant="outline" class="cursor-pointer">
+                        {{ edition?.poster_url ? 'Edit poster' : 'Add poster' }}
+                    </Button>
+                </Link>
             </div>
 
             <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
@@ -103,20 +108,6 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                             />
                             <div v-if="form.errors.empty_note" class="text-sm text-red-500">{{
                                     form.errors.empty_note
-                                }}
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <Label for="poster_path">Poster Path</Label>
-                            <Input
-                                id="poster_path"
-                                v-model="form.poster_path"
-                                type="text"
-                                :disabled="form.processing"
-                            />
-                            <div v-if="form.errors.poster_path" class="text-sm text-red-500">{{
-                                    form.errors.poster_path
                                 }}
                             </div>
                         </div>

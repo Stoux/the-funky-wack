@@ -30,7 +30,6 @@ abstract class EditionRequest extends FormRequest
             'number' => 'required|integer|unique:editions,number' . $editionRule,
             'tag_line' => 'required|string|max:255',
             'date' => 'required|date',
-            'poster_path' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'empty_note' => 'nullable|string|max:255',
         ];

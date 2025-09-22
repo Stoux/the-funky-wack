@@ -27,6 +27,9 @@ Route::middleware('admin')->prefix('/admin')->group(function () {
     Route::patch('/editions/{edition}', [EditionController::class, 'updateEdition'])->name('admin.editions.update');
     Route::delete('/editions/{edition}', [EditionController::class, 'deleteEdition'])->name('admin.editions.delete');
 
+    Route::get('/editions/{edition}/poster', [EditionController::class, 'viewPoster'])->name('admin.editions.poster');
+    Route::post('/editions/{edition}/poster', [EditionController::class, 'updatePoster'])->name('admin.editions.poster.update');
+
     Route::get('/livesets', [LivesetController::class, 'livesets'])->name('admin.livesets');
     Route::get('/livesets/new', [LivesetController::class, 'newLiveset'])->name('admin.livesets.create');
     Route::get('/livesets/{liveset}', [LivesetController::class, 'viewLiveset'])->name('admin.livesets.view');
@@ -41,9 +44,6 @@ Route::middleware('admin')->prefix('/admin')->group(function () {
     Route::post('/livesets/{liveset}/files/{file}/convert', [LivesetFilesController::class, 'convertLivesetFile'])->name('admin.livesets.files.convert');
     Route::post('/livesets/{liveset}/audiowaveform', [LivesetFilesController::class, 'generateAudiowaveform'])->name('admin.livesets.files.audiowaveform.generate');
     Route::delete('/livesets/{liveset}/audiowaveform', [LivesetFilesController::class, 'deleteAudiowaveform'])->name('admin.livesets.files.audiowaveform.delete');
-
-
-
 
     Route::post('/util/cue', [UtilController::class, 'parseCue'])->name('util.cue');
 
