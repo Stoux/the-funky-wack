@@ -7,9 +7,15 @@ use App\Http\Controllers\Admin\LivesetFilesController;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\UtilController;
 use App\Http\Controllers\ListController;
+use App\Http\Controllers\ApiController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ ListController::class, 'index'])->name('home');
+
+// Public API endpoints
+Route::prefix('api')->group(function () {
+    Route::get('/editions', [ApiController::class, 'editions'])->name('api.editions');
+});
 
 
 Route::get('/login', [LoginController::class, 'index'])->name('login');
