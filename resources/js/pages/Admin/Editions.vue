@@ -49,7 +49,10 @@ const deleteEdition = (id: number) => {
                         class="border-b border-sidebar-border/70 dark:border-sidebar-border">
                         <td class="p-4">{{ edition.number }}</td>
                         <td class="p-4">{{ edition.tag_line }}</td>
-                        <td class="p-4">{{ new Date(edition.date).toLocaleDateString() }}</td>
+                        <td class="p-4">
+                            {{ new Date(edition.date).toLocaleDateString() }}
+                            <span class="text-sm text-muted-foreground" v-if="edition.timetabler_mode"><br />Timetabler Enabled</span>
+                        </td>
                         <td class="p-4">
                             <div class="flex gap-2">
                                 <Link :href="route('admin.editions.view', edition.id)">

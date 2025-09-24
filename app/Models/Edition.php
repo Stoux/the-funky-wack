@@ -20,6 +20,7 @@ class Edition extends Model
         'poster_srcset',
         'notes',
         'empty_note',
+        'timetabler_mode',
     ];
 
     protected $appends = [
@@ -32,6 +33,7 @@ class Edition extends Model
         return [
             'date' => 'date',
             'poster_srcset' => 'array',
+            'timetabler_mode' => 'boolean',
         ];
     }
 

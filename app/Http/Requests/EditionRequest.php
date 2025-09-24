@@ -32,6 +32,7 @@ abstract class EditionRequest extends FormRequest
             'date' => 'required|date',
             'notes' => 'nullable|string',
             'empty_note' => 'nullable|string|max:255',
+            'timetabler_mode' => 'boolean',
         ];
     }
 }

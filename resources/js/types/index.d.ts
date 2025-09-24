@@ -44,6 +44,7 @@ export type Edition = {
     notes?: string,
     livesets?: Liveset[],
     empty_note?: string,
+    timetabler_mode: boolean,
     poster_url?: string,
     poster_srcset_urls?: {
         url: string,
@@ -72,6 +73,8 @@ export type Liveset = {
     duration_in_seconds?: number,
     started_at?: string,
     lineup_order?: number,
+    /** null = no timetable configured, false = invalid timetable (missing data), string = timetable slot (start to end times) */
+    timeslot?: null|false|string,
     soundcloud_url?: string,
     audio_waveform_path?: string,
     audio_waveform_url?: string,

@@ -11,13 +11,11 @@ import axios from 'axios';
 import {formatDuration, parseDuration} from "@/lib/utils";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
-interface Props {
+const props = defineProps<{
     liveset: Liveset | null;
     editions: Edition[];
     fileCount: number,
-}
-
-const props = defineProps<Props>();
+}>();
 const isNewLiveset = computed(() => !props.liveset);
 
 // Format tracks for display in textarea
@@ -31,7 +29,7 @@ const formatTracksForTextarea = (tracks: LivesetTrack[] | undefined): string => 
     }).join('\n');
 };
 
-const form = useForm({
+const formDataFromLiveset = () => ({
     edition_id: props.liveset?.edition_id ?? '',
     title: props.liveset?.title ?? '',
     artist_name: props.liveset?.artist_name ?? '',
@@ -44,6 +42,8 @@ const form = useForm({
     soundcloud_url: props.liveset?.soundcloud_url ?? '',
     tracks_text: formatTracksForTextarea(props.liveset?.tracks),
 });
+
+const form = useForm(formDataFromLiveset());
 
 const durationAsFormattedTime = ref(formatDuration(props.liveset?.duration_in_seconds, false, ''));
 
@@ -96,12 +96,19 @@ const attemptFixTrackList = () => {
 }
 
 const handleSubmit = () => {
+    const onSuccess = () => {
+        form.defaults(formDataFromLiveset());
+        form.reset();
+    };
+
     if (isNewLiveset.value) {
         form.post(route('admin.livesets.store'), {
-            replace: true,
+            onSuccess,
         });
     } else {
-        form.patch(route('admin.livesets.update', props.liveset?.id));
+        form.patch(route('admin.livesets.update', props.liveset?.id), {
+            onSuccess,
+        });
     }
 };
 
@@ -220,16 +227,20 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                         </div>
 
                         <div class="flex flex-col gap-2">
-                            <Label for="started_at">Recording started at</Label>
+                            <Label for="started_at">
+                                {{ edition?.timetabler_mode ? 'Starting time' : 'Recording started at'}}
+                            </Label>
                             <Input
                                 id="started_at"
                                 v-model="form.started_at"
                                 type="datetime-local"
                                 :disabled="form.processing"
                             />
-                            <div v-if="form.errors.started_at" class="text-sm text-red-500">{{
-                                    form.errors.started_at
-                                }}
+                            <div class="text-sm text-muted-foreground mb-1" v-if="edition?.timetabler_mode">
+                                This edition is in <span class="text-green-600 dark:text-green-400">timetabler mode</span>. The lowest configured starting time will be used as starting point for the timetable.
+                            </div>
+                            <div v-if="form.errors.started_at" class="text-sm text-red-500">
+                                {{ form.errors.started_at }}
                             </div>
                         </div>
 
@@ -241,6 +252,9 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                                 type="number"
                                 :disabled="form.processing"
                             />
+                            <div class="text-sm text-muted-foreground mb-1" v-if="edition?.timetabler_mode">
+                                This edition is in <span class="text-green-600 dark:text-green-400">timetabler mode</span>. We will attempt to reorder the whole timetable based on the value you have saved here, moving other ones up/down based on this liveset's (new) position.
+                            </div>
                             <div v-if="form.errors.lineup_order" class="text-sm text-red-500">
                                 {{ form.errors.lineup_order }}
                             </div>

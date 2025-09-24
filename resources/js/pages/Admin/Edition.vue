@@ -19,6 +19,7 @@ const form = useForm({
     empty_note: props.edition?.empty_note ?? '',
     date: props.edition?.date ? new Date(props.edition.date).toISOString().split('T')[0] : '',
     notes: props.edition?.notes ?? '',
+    timetabler_mode: props.edition?.timetabler_mode ?? false,
 });
 
 const handleSubmit = () => {
@@ -109,6 +110,27 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                             <div v-if="form.errors.empty_note" class="text-sm text-red-500">{{
                                     form.errors.empty_note
                                 }}
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2 mt-6 md:col-span-2">
+                            <div class="flex items-center gap-2">
+                                <input
+                                    id="timetabler_mode"
+                                    v-model="form.timetabler_mode"
+                                    type="checkbox"
+                                    class="rounded border border-sidebar-border/70 bg-transparent dark:border-sidebar-border"
+                                />
+                                <label for="timetabler_mode" class="font-medium">Timetabler Mode</label>
+                            </div>
+
+                            <span class="text-sm text-muted-foreground ml-2">
+                                When enabled, start times for livesets will be automatically calculated based on their duration (if the first liveset has a timestamp set). <br />
+                                It will also show a timetable like structure on the overview page instead of the normal duration(s).
+                            </span>
+
+                            <div v-if="form.errors.timetabler_mode" class="text-sm text-red-500">
+                                {{ form.errors.timetabler_mode }}
                             </div>
                         </div>
 

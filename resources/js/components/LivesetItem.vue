@@ -43,7 +43,9 @@ const play = (quality?: LivesetQuality) => {
 
             <div>
                 <h3 class="font-medium">
-                    <span class="text-muted-foreground" v-if="liveset.lineup_order !== null && liveset.lineup_order !== undefined">#{{ liveset.lineup_order }} &bull;</span>
+                    <span class="text-primary" v-if="liveset.timeslot">{{ liveset.timeslot }} &bull; </span>
+                    <span class="text-muted-foreground" v-if="liveset.lineup_order !== null && liveset.lineup_order !== undefined">#{{ liveset.lineup_order }} &bull; </span>
+
                     {{ liveset.title }}
                 </h3>
                 <div class="flex items-baseline space-x-2">

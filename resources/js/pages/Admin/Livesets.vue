@@ -5,11 +5,10 @@ import {Head, Link, router} from '@inertiajs/vue3';
 import {Button} from '@/components/ui/button';
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
-interface Props {
+defineProps<{
     livesets: Liveset[];
-}
-
-defineProps<Props>();
+    invalidTimetables: string[],
+}>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -44,6 +43,14 @@ const deleteLiveset = (liveset: Liveset) => {
                 </Link>
             </div>
 
+            <div v-if="invalidTimetables.length > 0" class="flex flex-col gap-2">
+                <div v-for="(message, index) in invalidTimetables" :key="index"
+                     class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-400">
+                    {{ message }}
+                </div>
+            </div>
+
+
             <div class="rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
                 <table class="w-full">
                     <thead>
@@ -74,7 +81,14 @@ const deleteLiveset = (liveset: Liveset) => {
                         <td class="p-4">{{ liveset.lineup_order }}</td>
                         <td class="p-4">{{ liveset.artist_name }}</td>
                         <td class="p-4">{{ liveset.title }}</td>
-                        <td class="p-4">{{ formatDuration(liveset.duration_in_seconds) }}</td>
+
+                        <td class="p-4" v-if="liveset.timeslot">
+                            {{ liveset.timeslot }} <span class="text-xs text-muted-foreground">({{ formatDuration(liveset.duration_in_seconds) }})</span>
+                        </td>
+                        <td class="p-4" v-else>
+                            {{ formatDuration(liveset.duration_in_seconds) }}
+                        </td>
+
                         <td class="p-4">
                             <div class="flex gap-2">
                                 <Link :href="route('admin.livesets.view', liveset.id)">
