@@ -83,6 +83,9 @@ class ResizePostersJob implements ShouldQueue, ShouldBeUniqueUntilProcessing
         // Ensure a full-size webp exists (converted from the original if needed)
         $originalWebpPath = $isWebpOriginal ? $path : $base.'.webp';
 
+        // Compute a deterministic version hash based on original file bytes (first 10 chars of sha1)
+        $version = substr(sha1_file($absolute) ?: sha1((string)file_get_contents($absolute)), 0, 10);
+
         try {
             if (!$isWebpOriginal) {
                 // Convert original to webp at original dimensions
@@ -115,7 +118,7 @@ class ResizePostersJob implements ShouldQueue, ShouldBeUniqueUntilProcessing
             $generated = [];
             // Include the full-size webp if it exists (and is not the original non-webp)
             if ($disk->exists($originalWebpPath)) {
-                $generated[] = ['path' => $originalWebpPath, 'width' => (int)$origWidth];
+                $generated[] = ['path' => $originalWebpPath, 'width' => (int)$origWidth, 'version' => $version];
             }
 
             // Generate resized webps from the original source (prefer the original file to avoid re-compression chain)
@@ -128,7 +131,7 @@ class ResizePostersJob implements ShouldQueue, ShouldBeUniqueUntilProcessing
                 $resizedPath = $base.'-'.$targetWidth.'.webp';
                 if ($disk->exists($resizedPath)) {
                     // already exists; collect it into srcset
-                    $generated[] = ['path' => $resizedPath, 'width' => (int)$targetWidth];
+                    $generated[] = ['path' => $resizedPath, 'width' => (int)$targetWidth, 'version' => $version];
                     continue; // idempotent
                 }
 
@@ -160,7 +163,7 @@ class ResizePostersJob implements ShouldQueue, ShouldBeUniqueUntilProcessing
                     ]);
                     // continue to try other sizes
                 } else {
-                    $generated[] = ['path' => $resizedPath, 'width' => (int)$targetWidth];
+                    $generated[] = ['path' => $resizedPath, 'width' => (int)$targetWidth, 'version' => $version];
                 }
 
                 imagedestroy($sourceIm);

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 class Edition extends Model
 {
@@ -48,9 +49,15 @@ class Edition extends Model
     public function posterUrl(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->poster_path
-                ? Storage::disk('public')->url($this->poster_path)
-                : null,
+            get: function () {
+                if (!$this->poster_path) return null;
+                // pick edition-level version if present in srcset entries, else default to '0'
+                $version = collect($this->poster_srcset ?? [])->first()['version'] ?? '0';
+                return route('storage.versioned-images', [
+                    'version' => $version,
+                    'path' => $this->poster_path,
+                ]);
+            },
         );
     }
 
@@ -61,8 +68,12 @@ class Edition extends Model
     {
         return Attribute::make(
             get: fn() => collect($this->poster_srcset ?? [])->map(function($poster_src) {
+                $version = $poster_src['version'] ?? '0';
                 return [
-                    'url' => Storage::disk('public')->url($poster_src['path']),
+                    'url' => route('storage.versioned-images', [
+                        'version' => $version,
+                        'path' => $poster_src['path'],
+                    ]),
                     'width' => $poster_src['width'],
                 ];
             }),

@@ -8,9 +8,15 @@ use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\UtilController;
 use App\Http\Controllers\ListController;
 use App\Http\Controllers\ApiController;
+use App\Http\Controllers\PosterController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ ListController::class, 'index'])->name('home');
+
+// Versioned, cache-busting asset route for posters and images
+Route::get('/images/{version}/{path}', [PosterController::class, 'show'])
+    ->where('path', '.*')
+    ->name('storage.versioned-images');
 
 // Public API endpoints
 Route::prefix('api')->group(function () {
