@@ -8,6 +8,7 @@ import {Separator} from "@/components/ui/separator";
 import LivesetDescription from "@/components/LivesetDescription.vue";
 import {Edition, Liveset, LivesetQuality} from "@/types";
 import {computed} from "vue";
+import ShareLivesetButton from "@/components/ShareLivesetButton.vue";
 
 const emit = defineEmits<{
     (e: 'play', quality?: LivesetQuality): void,
@@ -84,6 +85,7 @@ const play = (quality?: LivesetQuality) => {
 
             <LivesetTrackList :liveset="liveset" :button-type="iconButtonType" />
             <LivesetDescription :edition="edition" :liveset="liveset" :button-type="iconButtonType" />
+            <ShareLivesetButton :edition="edition" :liveset="liveset" :button-type="iconButtonType" />
         </div>
 
         <div class="text-sm text-muted-foreground">

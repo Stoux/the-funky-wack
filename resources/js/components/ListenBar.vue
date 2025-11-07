@@ -15,6 +15,7 @@ import {useCastMedia} from "@/composables/useCastMedia";
 import HoverPlugin from "wavesurfer.js/plugins/hover";
 import {useTracklistNowPlaying} from "@/composables/useTracklistNowPlaying";
 import {determineNowPlayingTrack} from "@/lib/tracklist.utils";
+import ShareLivesetButton from "@/components/ShareLivesetButton.vue";
 
 const props = defineProps<{
     edition: Edition,
@@ -306,6 +307,8 @@ onBeforeUnmount(() => {
                 <LivesetTrackList :liveset="liveset" :current-time="currentTime" button-type="ghost" v-if="liveset.tracks?.length" />
 
                 <LivesetDescription :edition="edition" :liveset="liveset" button-type="ghost" v-if="liveset.description" />
+
+                <ShareLivesetButton :edition="edition" :liveset="liveset" button-type="ghost" />
             </div>
 
             <DropdownMenu>

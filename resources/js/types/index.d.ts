@@ -53,6 +53,9 @@ export type Edition = {
 }
 
 
+/**
+ * Key is the quality, value is the URL to the file
+ */
 export type LivesetFilesByQuality = {
     lq?: string,
     hq?: string,

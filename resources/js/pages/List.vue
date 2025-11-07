@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {Edition, Liveset, LivesetFilesByQuality, LivesetQuality} from '@/types';
-import {computed, useTemplateRef, watch} from 'vue';
+import {computed, watch} from 'vue';
 import ListenBar from "@/components/ListenBar.vue";
 import LivesetItem from "@/components/LivesetItem.vue";
 import AutoplayButton from "@/components/AutoplayButton.vue";
@@ -8,6 +8,7 @@ import ContinuePlayingBar from "@/components/ContinuePlayingBar.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
 import TrackSearch from "@/components/TrackSearch.vue";
 import {useTrackSearch} from "@/composables/useTrackSearch";
+import PlayLinkedLivesetDialog from "@/components/PlayLinkedLivesetDialog.vue";
 
 const props = defineProps<{
     editions: Edition[],
@@ -29,7 +30,6 @@ const {
     playing,
     finished,
     autoplaying,
-    restoredState,
 } = useNowPlayingState();
 
 watch(finished, isFinished => {
@@ -154,5 +154,7 @@ trackSearch.withEditions(props.editions);
     />
 
     <ContinuePlayingBar :editions="editions" @play="(edition, liveset, audioQuality, atTime) => playLiveset(edition, liveset, audioQuality, atTime)" />
+
+    <PlayLinkedLivesetDialog :editions="editions" />
 
 </template>
