@@ -11,6 +11,16 @@ import axios from 'axios';
 import {formatDuration, parseDuration} from "@/lib/utils";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
+// Format a Date for datetime-local input using local timezone (not UTC)
+const formatDateTimeLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 const props = defineProps<{
     liveset: Liveset | null;
     editions: Edition[];
@@ -37,7 +47,7 @@ const formDataFromLiveset = () => ({
     bpm: props.liveset?.bpm ?? '',
     genre: props.liveset?.genre ?? '',
     duration_in_seconds: props.liveset?.duration_in_seconds as number | undefined,
-    started_at: props.liveset?.started_at ? new Date(props.liveset.started_at).toISOString().slice(0, 16) : '',
+    started_at: props.liveset?.started_at ? formatDateTimeLocal(new Date(props.liveset.started_at)) : '',
     lineup_order: props.liveset?.lineup_order ?? '',
     soundcloud_url: props.liveset?.soundcloud_url ?? '',
     tracks_text: formatTracksForTextarea(props.liveset?.tracks),
@@ -87,7 +97,7 @@ const onCueFileSelected = async (e: Event) => {
     }
 
     if (!form.started_at && result.data.recorded_at) {
-        form.started_at = new Date(result.data.recorded_at).toISOString().slice(0, 16);
+        form.started_at = formatDateTimeLocal(new Date(result.data.recorded_at));
     }
 }
 

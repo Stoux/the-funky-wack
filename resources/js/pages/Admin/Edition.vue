@@ -7,6 +7,14 @@ import {Label} from '@/components/ui/label';
 import {Input} from '@/components/ui/input';
 import {computed} from "vue";
 
+// Format a Date for date input using local timezone (not UTC)
+const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const props = defineProps<{
     edition: Edition | null;
 }>();
@@ -17,7 +25,7 @@ const form = useForm({
     number: props.edition?.number ?? '',
     tag_line: props.edition?.tag_line ?? '',
     empty_note: props.edition?.empty_note ?? '',
-    date: props.edition?.date ? new Date(props.edition.date).toISOString().split('T')[0] : '',
+    date: props.edition?.date ? formatDateLocal(new Date(props.edition.date)) : '',
     notes: props.edition?.notes ?? '',
     timetabler_mode: props.edition?.timetabler_mode ?? false,
 });
