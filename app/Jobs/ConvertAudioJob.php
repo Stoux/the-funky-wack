@@ -72,12 +72,12 @@ class ConvertAudioJob implements ShouldQueue
         }
 
         $qualityParam = match($this->target->quality) {
-            LivesetQuality::HQ => '160k',
+            LivesetQuality::HQ => '256k',
             LivesetQuality::LQ => '96k',
             default => throw new \Exception('Unsupported target quality: ' . $this->target->quality->value),
         };
 
-        $convertProcess = \Process::run([$ffmpeg, '-i', $originalPath, '-c:a', 'libopus', '-b:a', $qualityParam, $targetPath], function (string $type, string $output) {
+        $convertProcess = \Process::run([$ffmpeg, '-i', $originalPath, '-c:a', 'aac', '-b:a', $qualityParam, $targetPath], function (string $type, string $output) {
             if ($type === 'err') {
                 Log::error($output);
             } else {

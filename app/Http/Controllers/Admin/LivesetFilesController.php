@@ -170,7 +170,7 @@ class LivesetFilesController extends Controller
         // Build the new file path
         $newFilePath = preg_replace(
             '/\.[a-z0-9]{2,4}$/i',
-            '.' . $quality->value . '.opus',
+            '.' . $quality->value . '.m4a',
             $file->path,
         );
 
