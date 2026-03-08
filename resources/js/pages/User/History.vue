@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Play, Clock } from 'lucide-vue-next';
+import { ArrowLeft, Clock } from 'lucide-vue-next';
 import UserMenu from '@/components/UserMenu.vue';
 
 interface PlayHistoryItem {
@@ -21,6 +21,7 @@ interface PlayHistoryItem {
     is_active: boolean;
     quality: string | null;
     created_at: string;
+    updated_at: string;
 }
 
 interface PaginatedResponse {
@@ -35,6 +36,19 @@ const loading = ref(true);
 const currentPage = ref(1);
 const lastPage = ref(1);
 const hasMore = ref(false);
+const tick = ref(0); // Triggers reactivity for active duration updates
+let tickInterval: number | null = null;
+
+const hasActiveItems = computed(() => history.value.some(item => item.is_active));
+
+// Start/stop ticking based on whether there are active items
+watch(hasActiveItems, (hasActive) => {
+    if (hasActive) {
+        startTicking();
+    } else {
+        stopTicking();
+    }
+});
 
 async function loadHistory(page: number = 1) {
     loading.value = true;
@@ -66,6 +80,34 @@ function loadMore() {
     }
 }
 
+// Get live duration for an item (adds elapsed time since updated_at for active items)
+function getLiveDuration(item: PlayHistoryItem): number {
+    // Reference tick to trigger reactivity
+    void tick.value;
+
+    if (!item.is_active) {
+        return item.effective_duration_listened;
+    }
+
+    const updatedAt = new Date(item.updated_at).getTime();
+    const elapsed = Math.floor((Date.now() - updatedAt) / 1000);
+    return item.duration_listened + elapsed;
+}
+
+function startTicking() {
+    if (tickInterval) return;
+    tickInterval = window.setInterval(() => {
+        tick.value++;
+    }, 1000);
+}
+
+function stopTicking() {
+    if (tickInterval) {
+        clearInterval(tickInterval);
+        tickInterval = null;
+    }
+}
+
 function formatDuration(seconds: number): string {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -83,8 +125,15 @@ function formatDate(dateString: string): string {
     });
 }
 
-onMounted(() => {
-    loadHistory();
+onMounted(async () => {
+    await loadHistory();
+    if (hasActiveItems.value) {
+        startTicking();
+    }
+});
+
+onUnmounted(() => {
+    stopTicking();
 });
 </script>
 
@@ -124,9 +173,6 @@ onMounted(() => {
                     class="flex items-center justify-between p-4 rounded-lg border bg-card"
                 >
                     <div class="flex items-center space-x-4">
-                        <div class="flex-shrink-0">
-                            <Play class="h-5 w-5 text-muted-foreground" />
-                        </div>
                         <div>
                             <p class="font-medium">
                                 {{ item.liveset?.title || 'Unknown liveset' }}
@@ -138,7 +184,7 @@ onMounted(() => {
                     </div>
                     <div class="text-right text-sm text-muted-foreground">
                         <p>
-                            {{ formatDuration(item.effective_duration_listened) }} listened
+                            {{ formatDuration(getLiveDuration(item)) }} listened
                             <span v-if="item.is_active" class="text-green-500">●</span>
                         </p>
                         <p>{{ formatDate(item.created_at) }}</p>

@@ -1,21 +1,16 @@
 <script setup lang="ts">
 
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
-import {Loader2, Pause, Play, X} from "lucide-vue-next";
+import {useEditions} from "@/composables/useEditions";
+import {useAudioPlayer} from "@/composables/useAudioPlayer";
+import {Play, X} from "lucide-vue-next";
 import {Button} from "@/components/ui/button";
 import {formatDuration} from "@/lib/utils";
 import {computed} from "vue";
-import {Edition, Liveset} from "@/types";
+import {Edition, Liveset, LivesetQuality} from "@/types";
 
-const emit = defineEmits<{
-    (e: 'play', edition: Edition, liveset: Liveset, audioQuality: string, atTime: number): void,
-}>();
-
-const {
-    editions,
-} = defineProps<{
-    editions: Edition[],
-}>();
+const { editions } = useEditions();
+const { playLiveset } = useAudioPlayer();
 
 const {
     currentLiveset,
@@ -33,7 +28,7 @@ const resolved = computed<{
         return undefined;
     }
 
-    const edition = editions.find(edition => edition.id === state.edition);
+    const edition = editions.value.find(edition => edition.id === state.edition);
     const liveset = edition?.livesets?.find(liveset => liveset.id === state.liveset && liveset.files && liveset.files[state.audioQuality]);
 
     if (!edition || !liveset) {
@@ -48,7 +43,12 @@ const resolved = computed<{
 
 function play() {
     if (resolved.value && restoredState.value) {
-        emit('play', resolved.value.edition, resolved.value.liveset, restoredState.value.audioQuality, restoredState.value.timestamp);
+        playLiveset(
+            resolved.value.edition,
+            resolved.value.liveset,
+            restoredState.value.audioQuality as LivesetQuality,
+            restoredState.value.timestamp
+        );
     }
 }
 

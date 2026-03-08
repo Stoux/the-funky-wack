@@ -6,6 +6,11 @@ import { ArrowLeft, Heart, Play } from 'lucide-vue-next';
 import UserMenu from '@/components/UserMenu.vue';
 import FavoriteButton from '@/components/FavoriteButton.vue';
 import { formatDuration } from '@/lib/utils';
+import { useAudioPlayer } from '@/composables/useAudioPlayer';
+import { useEditions } from '@/composables/useEditions';
+
+const { playLiveset } = useAudioPlayer();
+const { findLivesetById } = useEditions();
 
 interface FavoriteItem {
     id: number;
@@ -49,6 +54,13 @@ function formatDate(dateString: string): string {
     });
 }
 
+function handlePlay(livesetId: number) {
+    const result = findLivesetById(livesetId);
+    if (result) {
+        playLiveset(result.edition, result.liveset);
+    }
+}
+
 onMounted(() => {
     loadFavorites();
 });
@@ -90,7 +102,7 @@ onMounted(() => {
                     class="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                 >
                     <div class="flex items-center space-x-4">
-                        <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full">
+                        <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full" @click="handlePlay(item.id)">
                             <Play class="h-4 w-4" />
                         </Button>
                         <div>

@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue';
+import { ref } from 'vue';
 import { echo } from '@laravel/echo-vue';
 import { usePage } from '@inertiajs/vue3';
 import { useAuth } from './useAuth';
@@ -562,11 +562,6 @@ export function usePlaybackSync() {
             .find(row => row.startsWith('XSRF-TOKEN='));
         return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
     }
-
-    // Cleanup on unmount
-    onUnmounted(() => {
-        stopSyncTimer();
-    });
 
     return {
         currentPlayback,

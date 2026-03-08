@@ -124,6 +124,9 @@ class PlayTrackingService
     public function endPlay(PlayHistory $playHistory, int $finalPosition, int $durationListened): void
     {
         $this->updateProgress($playHistory, $finalPosition, $durationListened);
+
+        // Mark as stopped so is_active returns false immediately
+        $playHistory->update(['stopped_at' => now()]);
     }
 
     /**

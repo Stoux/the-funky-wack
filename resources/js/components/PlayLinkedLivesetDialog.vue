@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue';
+import {onMounted, ref, watch} from 'vue';
 import {Edition, Liveset} from '@/types';
 import {useNowPlayingState} from '@/composables/useNowPlayingState';
+import {useEditions} from '@/composables/useEditions';
+import {useAudioPlayer} from '@/composables/useAudioPlayer';
 import {formatDuration, parseDuration} from '@/lib/utils';
 import {
     AlertDialog,
@@ -14,9 +16,8 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const props = defineProps<{
-    editions: Edition[],
-}>();
+const { editions, hasEditions } = useEditions();
+const { playLiveset } = useAudioPlayer();
 
 const open = ref(false);
 const targetLiveset = ref<Liveset | undefined>();
@@ -26,6 +27,11 @@ const atTime = ref<number>(0);
 const {currentEdition, currentLiveset, currentTime, playing} = useNowPlayingState();
 
 function maybeOpenFromHash() {
+    // Wait until editions are loaded
+    if (!hasEditions.value) {
+        return;
+    }
+
     const hash = window.location.hash ?? '';
     if (!hash || hash.length <= 1) return;
 
@@ -48,7 +54,7 @@ function maybeOpenFromHash() {
     // Find liveset by id across editions
     const id = Number(lidParam);
 
-    for (const foundEdition of props.editions) {
+    for (const foundEdition of editions.value) {
         const foundLiveset = foundEdition.livesets?.find(l => l.id === id);
         if (!foundLiveset) {
             continue
@@ -92,10 +98,7 @@ function confirmPlay() {
         return
     }
 
-    currentEdition.value = targetEdition.value;
-    currentLiveset.value = targetLiveset.value;
-    currentTime.value = atTime.value ?? 0;
-    playing.value = true;
+    playLiveset(targetEdition.value, targetLiveset.value, undefined, atTime.value ?? 0);
 
     // Clear only our deep-link params so refreshing won't re-open
     clearDeepLinkParams();
@@ -110,6 +113,12 @@ function cancelDialog() {
     open.value = false;
 }
 
+// Try to open from hash when editions become available
+watch(hasEditions, (has) => {
+    if (has) {
+        maybeOpenFromHash();
+    }
+});
 
 onMounted(() => {
     maybeOpenFromHash();

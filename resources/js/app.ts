@@ -7,6 +7,7 @@ import { createApp, h } from 'vue';
 import { ZiggyVue } from 'ziggy-js';
 import { initializeTheme } from './composables/useAppearance';
 import { configureEcho } from '@laravel/echo-vue';
+import FrontLayout from './layouts/FrontLayout.vue';
 
 const echoConfig = {
     broadcaster: 'reverb',
@@ -54,7 +55,20 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
-    resolve: (name) => resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue')),
+    resolve: async (name) => {
+        const page = await resolvePageComponent(
+            `./pages/${name}.vue`,
+            import.meta.glob<DefineComponent>('./pages/**/*.vue')
+        );
+
+        // Front pages (non-admin) use FrontLayout for persistent playbar
+        // Admin pages keep their existing AppLayout/AppSidebarLayout
+        if (!name.startsWith('Admin/')) {
+            page.default.layout = page.default.layout || FrontLayout;
+        }
+
+        return page;
+    },
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })
             .use(plugin)

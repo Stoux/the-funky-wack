@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\EditionsDataService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,6 +12,12 @@ use Illuminate\Support\Facades\Storage;
 class Liveset extends Model
 {
     use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => EditionsDataService::clearCache());
+        static::deleted(fn () => EditionsDataService::clearCache());
+    }
 
     protected $fillable = [
         'edition_id',

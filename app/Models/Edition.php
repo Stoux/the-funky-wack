@@ -2,16 +2,22 @@
 
 namespace App\Models;
 
+use App\Services\EditionsDataService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
 class Edition extends Model
 {
     use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => EditionsDataService::clearCache());
+        static::deleted(fn () => EditionsDataService::clearCache());
+    }
 
     protected $fillable = [
         'number',
@@ -50,9 +56,12 @@ class Edition extends Model
     {
         return Attribute::make(
             get: function () {
-                if (!$this->poster_path) return null;
+                if (! $this->poster_path) {
+                    return null;
+                }
                 // pick edition-level version if present in srcset entries, else default to '0'
                 $version = collect($this->poster_srcset ?? [])->first()['version'] ?? '0';
+
                 return route('storage.versioned-images', [
                     'version' => $version,
                     'path' => $this->poster_path,
@@ -67,8 +76,9 @@ class Edition extends Model
     public function posterSrcsetUrls(): Attribute
     {
         return Attribute::make(
-            get: fn() => collect($this->poster_srcset ?? [])->map(function($poster_src) {
+            get: fn () => collect($this->poster_srcset ?? [])->map(function ($poster_src) {
                 $version = $poster_src['version'] ?? '0';
+
                 return [
                     'url' => route('storage.versioned-images', [
                         'version' => $version,
@@ -79,5 +89,4 @@ class Edition extends Model
             }),
         );
     }
-
 }

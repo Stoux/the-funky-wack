@@ -27,6 +27,7 @@ class PlayHistory extends Model
         'platform',
         'counted_as_play',
         'disconnected_at',
+        'stopped_at',
     ];
 
     protected function casts(): array
@@ -34,6 +35,7 @@ class PlayHistory extends Model
         return [
             'counted_as_play' => 'boolean',
             'disconnected_at' => 'datetime',
+            'stopped_at' => 'datetime',
         ];
     }
 
@@ -69,12 +71,12 @@ class PlayHistory extends Model
     }
 
     /**
-     * Check if this play session is still active (recently updated and not disconnected).
+     * Check if this play session is still active (recently updated, not disconnected or stopped).
      */
     public function getIsActiveAttribute(): bool
     {
-        // Disconnected sessions are not active
-        if ($this->disconnected_at !== null) {
+        // Stopped or disconnected sessions are not active
+        if ($this->stopped_at !== null || $this->disconnected_at !== null) {
             return false;
         }
 

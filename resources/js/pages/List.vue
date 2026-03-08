@@ -1,41 +1,33 @@
 <script setup lang="ts">
-import {Edition, Liveset, LivesetFilesByQuality, LivesetQuality} from '@/types';
-import {computed, watch, onMounted} from 'vue';
-import ListenBar from "@/components/ListenBar.vue";
+import {Edition, Liveset, LivesetQuality} from '@/types';
+import {watch, onMounted} from 'vue';
 import LivesetItem from "@/components/LivesetItem.vue";
 import AutoplayButton from "@/components/AutoplayButton.vue";
-import ContinuePlayingBar from "@/components/ContinuePlayingBar.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
+import {useEditions} from "@/composables/useEditions";
+import {useAudioPlayer} from "@/composables/useAudioPlayer";
 import TrackSearch from "@/components/TrackSearch.vue";
 import {useTrackSearch} from "@/composables/useTrackSearch";
-import PlayLinkedLivesetDialog from "@/components/PlayLinkedLivesetDialog.vue";
 import UserMenu from "@/components/UserMenu.vue";
 import {useFavorites} from "@/composables/useFavorites";
 
-const props = defineProps<{
-    editions: Edition[],
-    // Not actual files but labels
-    qualities: LivesetFilesByQuality,
-}>();
+// Get editions from shared Inertia props
+const { editions, sortedEditions } = useEditions();
 
 // Initialize favorites from edition data
 const { initializeFavorites } = useFavorites();
 onMounted(() => {
-    const allLivesets = props.editions.flatMap(edition => edition.livesets || []);
+    const allLivesets = editions.value.flatMap(edition => edition.livesets || []);
     initializeFavorites(allLivesets);
 });
 
-// Sort editions by number in descending order (newest first)
-const sortedEditions = computed(() => {
-    return [...props.editions].sort((a, b) => parseInt(b.number) - parseInt(a.number));
-});
+// Use the shared audio player
+const { playLiveset } = useAudioPlayer();
 
 // State for the currently playing liveset
 const {
     currentLiveset,
     currentEdition,
-    audioQuality,
-    currentTime,
     playing,
     finished,
     autoplaying,
@@ -48,19 +40,8 @@ watch(finished, isFinished => {
 })
 
 // Play a liveset
-const playLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, atTime: number = 0) => {
-    if (currentEdition.value?.id === edition.id && currentLiveset.value?.id === liveset.id && ( quality === undefined || quality === audioQuality.value ) ) {
-        // Play/pausing the current liveset.
-        playing.value = !playing.value;
-        return;
-    }
-
-    currentEdition.value = edition;
-    currentLiveset.value = liveset;
-    currentTime.value = atTime;
-    if (quality) {
-        audioQuality.value = quality;
-    }
+const handlePlayLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, atTime: number = 0) => {
+    playLiveset(edition, liveset, quality, atTime);
 };
 
 const possiblyAutoplayNextLiveset = () => {
@@ -99,12 +80,14 @@ const possiblyAutoplayNextLiveset = () => {
 
 // Pass the editions to the track search
 const trackSearch = useTrackSearch();
-trackSearch.withEditions(props.editions);
+watch(editions, (newEditions) => {
+    trackSearch.withEditions(newEditions);
+}, { immediate: true });
 
 </script>
 
 <template>
-    <div class="flex h-full flex-1 flex-col gap-4 p-4" :class="{ 'pb-64': currentLiveset && currentEdition }">
+    <div class="flex h-full flex-1 flex-col gap-4 p-4">
         <div class="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center">
             <h2 class="text-4xl font-bold">
                 The Funky Wack -
@@ -147,7 +130,7 @@ trackSearch.withEditions(props.editions);
                                  :edition="edition" :liveset="liveset"
                                  :is-current="liveset.id === currentLiveset?.id"
                                  :is-playing="liveset.id === currentLiveset?.id && playing"
-                                 @play="quality => playLiveset(edition, liveset, quality)"
+                                 @play="quality => handlePlayLiveset(edition, liveset, quality)"
                                  />
 
                     <div v-if="!edition.livesets?.length || edition.empty_note">
@@ -157,14 +140,4 @@ trackSearch.withEditions(props.editions);
             </div>
         </div>
     </div>
-
-    <!-- Sticky player bar at the bottom -->
-    <ListenBar v-if="currentLiveset && currentEdition"
-               :edition="currentEdition" :liveset="currentLiveset" :qualities="qualities"
-    />
-
-    <ContinuePlayingBar :editions="editions" @play="(edition, liveset, audioQuality, atTime) => playLiveset(edition, liveset, audioQuality, atTime)" />
-
-    <PlayLinkedLivesetDialog :editions="editions" />
-
 </template>
