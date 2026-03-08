@@ -2,19 +2,10 @@
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, computed } from 'vue';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, ListMusic, Plus, Lock, Globe, Link as LinkIcon, User } from 'lucide-vue-next';
 import UserMenu from '@/components/UserMenu.vue';
+import CreatePlaylistDialog from '@/components/CreatePlaylistDialog.vue';
 
 interface Playlist {
     id: number;
@@ -36,8 +27,6 @@ const myPlaylists = ref<Playlist[]>([]);
 const publicPlaylists = ref<Playlist[]>([]);
 const loading = ref(true);
 const createDialogOpen = ref(false);
-const newPlaylistName = ref('');
-const creating = ref(false);
 
 async function loadPlaylists() {
     loading.value = true;
@@ -62,33 +51,8 @@ async function loadPlaylists() {
     }
 }
 
-async function createPlaylist() {
-    if (!newPlaylistName.value.trim()) return;
-
-    creating.value = true;
-    try {
-        const response = await fetch('/api/playlists', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-XSRF-TOKEN': getCsrfToken(),
-            },
-            credentials: 'include',
-            body: JSON.stringify({ name: newPlaylistName.value }),
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            myPlaylists.value.unshift(data.playlist);
-            createDialogOpen.value = false;
-            newPlaylistName.value = '';
-        }
-    } catch (error) {
-        console.error('Failed to create playlist:', error);
-    } finally {
-        creating.value = false;
-    }
+function onPlaylistCreated(playlist: Playlist) {
+    myPlaylists.value.unshift(playlist);
 }
 
 function getVisibilityIcon(visibility: string) {
@@ -106,13 +70,6 @@ function formatDate(dateString: string): string {
         month: 'short',
         day: 'numeric',
     });
-}
-
-function getCsrfToken(): string {
-    const cookie = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('XSRF-TOKEN='));
-    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
 }
 
 function getPlaylistUrl(playlist: Playlist): string {
@@ -139,39 +96,18 @@ onMounted(() => {
                     <h1 class="text-2xl font-bold">Playlists</h1>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <Dialog v-if="isAuthenticated" v-model:open="createDialogOpen">
+                    <CreatePlaylistDialog
+                        v-if="isAuthenticated"
+                        v-model:open="createDialogOpen"
+                        @created="onPlaylistCreated"
+                    >
                         <DialogTrigger as-child>
                             <Button size="sm">
                                 <Plus class="h-4 w-4 mr-2" />
                                 New Playlist
                             </Button>
                         </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create Playlist</DialogTitle>
-                                <DialogDescription>
-                                    Give your new playlist a name.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div class="py-4">
-                                <Label for="name">Name</Label>
-                                <Input
-                                    id="name"
-                                    v-model="newPlaylistName"
-                                    placeholder="My Playlist"
-                                    @keyup.enter="createPlaylist"
-                                />
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" @click="createDialogOpen = false">
-                                    Cancel
-                                </Button>
-                                <Button @click="createPlaylist" :disabled="creating || !newPlaylistName.trim()">
-                                    {{ creating ? 'Creating...' : 'Create' }}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    </CreatePlaylistDialog>
                     <UserMenu />
                 </div>
             </div>

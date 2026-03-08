@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { Button, type ButtonVariants } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -10,8 +10,16 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ListPlus, Plus, Check, Loader2 } from 'lucide-vue-next';
+import { ListPlus, Plus, Check, Loader2, CheckCircle } from 'lucide-vue-next';
 import { useAuth } from '@/composables/useAuth';
+import CreatePlaylistDialog from '@/components/CreatePlaylistDialog.vue';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from '@/components/ui/dialog';
 
 interface PlaylistSummary {
     id: number;
@@ -31,6 +39,13 @@ const playlists = ref<PlaylistSummary[]>([]);
 const loading = ref(false);
 const adding = ref<number | null>(null);
 const justAdded = ref<number | null>(null);
+
+// Create dialog
+const createDialogOpen = ref(false);
+
+// Confirmation dialog
+const confirmDialogOpen = ref(false);
+const addedToPlaylistName = ref('');
 
 function getCsrfToken(): string {
     const cookie = document.cookie
@@ -61,7 +76,10 @@ async function loadPlaylists() {
 async function addToPlaylist(playlistId: number) {
     adding.value = playlistId;
     try {
-        const response = await fetch(`/api/playlists/${playlistId}/items`, {
+        const playlist = playlists.value.find(p => p.id === playlistId);
+        const shareCode = (playlist as any)?.share_code;
+
+        const response = await fetch(`/api/playlists/${shareCode || playlistId}/items`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -75,12 +93,15 @@ async function addToPlaylist(playlistId: number) {
         });
 
         if (response.ok || response.status === 409) {
-            // Success or already in playlist - show check
             justAdded.value = playlistId;
-            // Update count locally
-            const playlist = playlists.value.find(p => p.id === playlistId);
-            if (playlist && response.ok) {
-                playlist.items_count++;
+            if (playlist) {
+                if (response.ok) {
+                    playlist.items_count++;
+                }
+                // Show confirmation
+                addedToPlaylistName.value = playlist.name;
+                open.value = false; // Close dropdown
+                confirmDialogOpen.value = true;
             }
             setTimeout(() => {
                 justAdded.value = null;
@@ -98,6 +119,23 @@ function handleTriggerClick() {
         router.visit(route('auth.login'));
         return;
     }
+}
+
+function openCreateDialog() {
+    open.value = false; // Close dropdown
+    createDialogOpen.value = true;
+}
+
+function onPlaylistCreated(playlist: PlaylistSummary) {
+    // The liveset was already added by the dialog
+    playlists.value.unshift(playlist);
+    justAdded.value = playlist.id;
+    // Show confirmation
+    addedToPlaylistName.value = playlist.name;
+    confirmDialogOpen.value = true;
+    setTimeout(() => {
+        justAdded.value = null;
+    }, 1500);
 }
 
 // Load playlists when dropdown opens
@@ -139,42 +177,64 @@ defineExpose({ openMenu });
                 <Loader2 class="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
 
-            <template v-else-if="playlists.length === 0">
-                <div class="px-2 py-4 text-sm text-center text-muted-foreground">
+            <template v-else>
+                <!-- Existing playlists -->
+                <template v-if="playlists.length > 0">
+                    <DropdownMenuItem
+                        v-for="playlist in playlists"
+                        :key="playlist.id"
+                        @click.stop="addToPlaylist(playlist.id)"
+                        :disabled="adding === playlist.id"
+                        class="flex items-center justify-between cursor-pointer"
+                    >
+                        <span class="truncate">{{ playlist.name }}</span>
+                        <span class="flex items-center text-muted-foreground">
+                            <Loader2 v-if="adding === playlist.id" class="h-3 w-3 animate-spin" />
+                            <Check v-else-if="justAdded === playlist.id" class="h-3 w-3 text-green-500" />
+                            <span v-else class="text-xs">{{ playlist.items_count }}</span>
+                        </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                </template>
+
+                <!-- No playlists message -->
+                <div v-else class="px-2 py-3 text-sm text-center text-muted-foreground">
                     No playlists yet
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem as-child>
-                    <Link :href="route('user.playlists')" class="flex items-center">
-                        <Plus class="h-4 w-4 mr-2" />
-                        Create playlist
-                    </Link>
-                </DropdownMenuItem>
-            </template>
 
-            <template v-else>
-                <DropdownMenuItem
-                    v-for="playlist in playlists"
-                    :key="playlist.id"
-                    @click.stop="addToPlaylist(playlist.id)"
-                    :disabled="adding === playlist.id"
-                    class="flex items-center justify-between cursor-pointer"
-                >
-                    <span class="truncate">{{ playlist.name }}</span>
-                    <span class="flex items-center text-muted-foreground">
-                        <Loader2 v-if="adding === playlist.id" class="h-3 w-3 animate-spin" />
-                        <Check v-else-if="justAdded === playlist.id" class="h-3 w-3 text-green-500" />
-                        <span v-else class="text-xs">{{ playlist.items_count }}</span>
-                    </span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem as-child>
-                    <Link :href="route('user.playlists')" class="flex items-center">
-                        <Plus class="h-4 w-4 mr-2" />
-                        Create playlist
-                    </Link>
+                <!-- Create new playlist -->
+                <DropdownMenuItem @click.stop="openCreateDialog" class="flex items-center cursor-pointer">
+                    <Plus class="h-4 w-4 mr-2" />
+                    New playlist
                 </DropdownMenuItem>
             </template>
         </DropdownMenuContent>
     </DropdownMenu>
+
+    <!-- Create Playlist Dialog -->
+    <CreatePlaylistDialog
+        v-model:open="createDialogOpen"
+        :auto-add-liveset-id="livesetId"
+        @created="onPlaylistCreated"
+    />
+
+    <!-- Added Confirmation Dialog -->
+    <Dialog v-model:open="confirmDialogOpen">
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle class="flex items-center gap-2">
+                    <CheckCircle class="h-5 w-5 text-green-500" />
+                    Added to playlist
+                </DialogTitle>
+            </DialogHeader>
+            <p class="text-muted-foreground">
+                This liveset has been added to <strong>{{ addedToPlaylistName }}</strong>.
+            </p>
+            <DialogFooter>
+                <Button @click="confirmDialogOpen = false">
+                    OK
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
