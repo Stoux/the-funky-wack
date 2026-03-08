@@ -2,8 +2,9 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Clock } from 'lucide-vue-next';
+import { ArrowLeft, Clock, Smartphone, Monitor, Tablet, Car, HelpCircle } from 'lucide-vue-next';
 import UserMenu from '@/components/UserMenu.vue';
+import { getClientId } from '@/composables/useDeviceId';
 
 interface PlayHistoryItem {
     id: number;
@@ -20,6 +21,11 @@ interface PlayHistoryItem {
     effective_duration_listened: number;
     is_active: boolean;
     quality: string | null;
+    device: {
+        display_name: string;
+        device_type: string;
+        is_current: boolean;
+    } | null;
     created_at: string;
     updated_at: string;
 }
@@ -33,6 +39,14 @@ interface PaginatedResponse {
 
 const history = ref<PlayHistoryItem[]>([]);
 const loading = ref(true);
+
+const deviceIcons: Record<string, typeof Monitor> = {
+    mobile: Smartphone,
+    desktop: Monitor,
+    tablet: Tablet,
+    car: Car,
+    other: HelpCircle,
+};
 const currentPage = ref(1);
 const lastPage = ref(1);
 const hasMore = ref(false);
@@ -53,8 +67,12 @@ watch(hasActiveItems, (hasActive) => {
 async function loadHistory(page: number = 1) {
     loading.value = true;
     try {
+        const clientId = await getClientId();
         const response = await fetch(`/api/playback/history?page=${page}`, {
             credentials: 'include',
+            headers: {
+                'X-Client-ID': clientId,
+            },
         });
         if (response.ok) {
             const data: PaginatedResponse = await response.json();
@@ -188,6 +206,14 @@ onUnmounted(() => {
                             <span v-if="item.is_active" class="text-green-500">●</span>
                         </p>
                         <p>{{ formatDate(item.created_at) }}</p>
+                        <p v-if="item.device" class="flex items-center justify-end gap-1 text-xs">
+                            <component
+                                :is="deviceIcons[item.device.device_type] || deviceIcons.other"
+                                class="h-3 w-3"
+                            />
+                            {{ item.device.display_name }}
+                            <span v-if="item.device.is_current" class="text-primary">(this device)</span>
+                        </p>
                     </div>
                 </div>
 

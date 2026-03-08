@@ -3,8 +3,12 @@ import ListenBar from '@/components/ListenBar.vue';
 import ContinuePlayingBar from '@/components/ContinuePlayingBar.vue';
 import PlayLinkedLivesetDialog from '@/components/PlayLinkedLivesetDialog.vue';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
+import { useDeviceRegistration } from '@/composables/useDeviceRegistration';
 
 const { currentLiveset, currentEdition } = useAudioPlayer();
+
+// Auto-register device for logged-in users
+useDeviceRegistration();
 </script>
 
 <template>

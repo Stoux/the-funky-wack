@@ -33,12 +33,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [UserController::class, 'profile'])->name('user.profile');
     Route::get('/history', [UserController::class, 'history'])->name('user.history');
     Route::get('/favorites', [UserController::class, 'favorites'])->name('user.favorites');
-    Route::get('/playlists', [UserController::class, 'playlists'])->name('user.playlists');
-    Route::get('/playlists/{playlist}', [UserController::class, 'playlist'])->name('user.playlist');
+    Route::get('/devices', [UserController::class, 'devices'])->name('user.devices');
 });
 
-// Public shared playlist
-Route::get('/p/{code}', [UserController::class, 'sharedPlaylist'])->name('playlist.shared');
+// Playlists - public overview + individual playlist view
+Route::get('/playlists', [UserController::class, 'playlists'])->name('user.playlists');
+Route::get('/playlists/{shareCode}/{slug?}', [UserController::class, 'playlist'])->name('playlist.show');
+
+// Legacy shared playlist URL redirect
+Route::get('/p/{code}', fn (string $code) => redirect()->route('playlist.show', ['shareCode' => $code]));
 
 // Admin login (separate from user login)
 Route::get('/admin/login', [AdminLoginController::class, 'index'])->name('admin.login');

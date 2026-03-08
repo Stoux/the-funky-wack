@@ -12,6 +12,7 @@ import {
 import {Button, type ButtonVariants} from "@/components/ui/button";
 import {Info} from "lucide-vue-next";
 import {Edition, Liveset} from "@/types";
+import {ref} from "vue";
 
 defineProps<{
     edition: Edition,
@@ -19,10 +20,18 @@ defineProps<{
     buttonType?: ButtonVariants['variant'],
 }>();
 
+const isOpen = ref(false);
+
+function open() {
+    isOpen.value = true;
+}
+
+defineExpose({ open });
+
 </script>
 
 <template>
-    <Sheet>
+    <Sheet v-model:open="isOpen">
         <SheetTrigger as-child>
             <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full"
                     title="View description / more info"

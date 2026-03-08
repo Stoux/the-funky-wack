@@ -100,12 +100,19 @@ class User extends Authenticatable
 
     /**
      * Get or create a device for this user.
+     * Restores soft-deleted devices if they come back.
      */
     public function getOrCreateDevice(string $clientId, ?string $userAgent = null): UserDevice
     {
-        $device = $this->devices()->where('client_id', $clientId)->first();
+        // Check for existing device (including soft-deleted)
+        $device = $this->devices()->withTrashed()->where('client_id', $clientId)->first();
 
         if ($device) {
+            // Restore if soft-deleted
+            if ($device->trashed()) {
+                $device->restore();
+            }
+
             // Update last seen
             $device->update(['last_seen_at' => now()]);
 

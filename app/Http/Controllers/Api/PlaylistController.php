@@ -16,25 +16,75 @@ class PlaylistController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $playlists = $request->user()
+        $user = $request->user();
+
+        $myPlaylists = $user
             ->playlists()
             ->withCount('items')
             ->orderByDesc('updated_at')
             ->get()
-            ->map(fn (Playlist $playlist) => [
-                'id' => $playlist->id,
-                'name' => $playlist->name,
-                'description' => $playlist->description,
-                'visibility' => $playlist->visibility,
-                'share_code' => $playlist->share_code,
-                'items_count' => $playlist->items_count,
-                'created_at' => $playlist->created_at->toIso8601String(),
-                'updated_at' => $playlist->updated_at->toIso8601String(),
-            ]);
+            ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, true));
+
+        $publicPlaylists = Playlist::query()
+            ->where('visibility', 'public')
+            ->where('user_id', '!=', $user->id)
+            ->with('user:id,name')
+            ->withCount('items')
+            ->orderByDesc('updated_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, false));
+
+        return response()->json([
+            'playlists' => $myPlaylists,
+            'publicPlaylists' => $publicPlaylists,
+        ]);
+    }
+
+    /**
+     * List public playlists (for non-authenticated users).
+     */
+    public function publicIndex(): JsonResponse
+    {
+        $playlists = Playlist::query()
+            ->where('visibility', 'public')
+            ->with('user:id,name')
+            ->withCount('items')
+            ->orderByDesc('updated_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, false));
 
         return response()->json([
             'playlists' => $playlists,
         ]);
+    }
+
+    /**
+     * Format a playlist for API response.
+     */
+    protected function formatPlaylist(Playlist $playlist, bool $isOwner): array
+    {
+        $data = [
+            'id' => $playlist->id,
+            'name' => $playlist->name,
+            'description' => $playlist->description,
+            'visibility' => $playlist->visibility,
+            'share_code' => $playlist->share_code,
+            'slug' => $playlist->slug,
+            'items_count' => $playlist->items_count,
+            'created_at' => $playlist->created_at->toIso8601String(),
+            'updated_at' => $playlist->updated_at->toIso8601String(),
+        ];
+
+        if (! $isOwner && $playlist->relationLoaded('user')) {
+            $data['user'] = [
+                'id' => $playlist->user->id,
+                'name' => $playlist->user->name,
+            ];
+        }
+
+        return $data;
     }
 
     /**
@@ -70,14 +120,23 @@ class PlaylistController extends Controller
     /**
      * Get a playlist with its items.
      */
-    public function show(Request $request, Playlist $playlist): JsonResponse
+    public function show(Request $request, string $shareCode): JsonResponse
     {
-        // Check ownership
-        if ($playlist->user_id !== $request->user()->id) {
+        $playlist = Playlist::where('share_code', $shareCode)->first();
+
+        if (! $playlist) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $user = $request->user();
+        $isOwner = $user && $playlist->user_id === $user->id;
+
+        // Check access - owner can always view, otherwise must be public/unlisted
+        if (! $isOwner && ! $playlist->isPubliclyAccessible()) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        $playlist->load(['items.liveset.edition']);
+        $playlist->load(['items.liveset.edition', 'user:id,name']);
 
         return response()->json([
             'playlist' => [
@@ -86,6 +145,12 @@ class PlaylistController extends Controller
                 'description' => $playlist->description,
                 'visibility' => $playlist->visibility,
                 'share_code' => $playlist->share_code,
+                'slug' => $playlist->slug,
+                'is_owner' => $isOwner,
+                'user' => ! $isOwner ? [
+                    'id' => $playlist->user->id,
+                    'name' => $playlist->user->name,
+                ] : null,
                 'items' => $playlist->items->map(fn ($item) => [
                     'id' => $item->id,
                     'liveset_id' => $item->liveset_id,
@@ -110,11 +175,12 @@ class PlaylistController extends Controller
     /**
      * Update a playlist.
      */
-    public function update(Request $request, Playlist $playlist): JsonResponse
+    public function update(Request $request, string $shareCode): JsonResponse
     {
-        // Check ownership
-        if ($playlist->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        $playlist = $this->getOwnedPlaylist($request, $shareCode);
+
+        if ($playlist instanceof JsonResponse) {
+            return $playlist;
         }
 
         $validated = $request->validate([
@@ -125,11 +191,6 @@ class PlaylistController extends Controller
 
         $playlist->update($validated);
 
-        // Generate share code if visibility is unlisted or public
-        if (in_array($playlist->visibility, ['public', 'unlisted']) && ! $playlist->share_code) {
-            $playlist->update(['share_code' => Playlist::generateShareCode()]);
-        }
-
         return response()->json([
             'playlist' => [
                 'id' => $playlist->id,
@@ -137,6 +198,7 @@ class PlaylistController extends Controller
                 'description' => $playlist->description,
                 'visibility' => $playlist->visibility,
                 'share_code' => $playlist->share_code,
+                'slug' => $playlist->slug,
                 'updated_at' => $playlist->updated_at->toIso8601String(),
             ],
         ]);
@@ -145,11 +207,12 @@ class PlaylistController extends Controller
     /**
      * Delete a playlist.
      */
-    public function destroy(Request $request, Playlist $playlist): JsonResponse
+    public function destroy(Request $request, string $shareCode): JsonResponse
     {
-        // Check ownership
-        if ($playlist->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        $playlist = $this->getOwnedPlaylist($request, $shareCode);
+
+        if ($playlist instanceof JsonResponse) {
+            return $playlist;
         }
 
         $playlist->delete();
@@ -162,11 +225,12 @@ class PlaylistController extends Controller
     /**
      * Add a liveset to a playlist.
      */
-    public function addItem(Request $request, Playlist $playlist): JsonResponse
+    public function addItem(Request $request, string $shareCode): JsonResponse
     {
-        // Check ownership
-        if ($playlist->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        $playlist = $this->getOwnedPlaylist($request, $shareCode);
+
+        if ($playlist instanceof JsonResponse) {
+            return $playlist;
         }
 
         $validated = $request->validate([
@@ -200,11 +264,12 @@ class PlaylistController extends Controller
     /**
      * Reorder playlist items.
      */
-    public function reorderItems(Request $request, Playlist $playlist): JsonResponse
+    public function reorderItems(Request $request, string $shareCode): JsonResponse
     {
-        // Check ownership
-        if ($playlist->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        $playlist = $this->getOwnedPlaylist($request, $shareCode);
+
+        if ($playlist instanceof JsonResponse) {
+            return $playlist;
         }
 
         $validated = $request->validate([
@@ -229,11 +294,12 @@ class PlaylistController extends Controller
     /**
      * Remove a liveset from a playlist.
      */
-    public function removeItem(Request $request, Playlist $playlist, Liveset $liveset): JsonResponse
+    public function removeItem(Request $request, string $shareCode, Liveset $liveset): JsonResponse
     {
-        // Check ownership
-        if ($playlist->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+        $playlist = $this->getOwnedPlaylist($request, $shareCode);
+
+        if ($playlist instanceof JsonResponse) {
+            return $playlist;
         }
 
         $deleted = $playlist->items()
@@ -252,47 +318,39 @@ class PlaylistController extends Controller
     }
 
     /**
-     * View a shared playlist.
+     * Regenerate the playlist's share code.
      */
-    public function shared(string $code): JsonResponse
+    public function regenerateCode(Request $request, string $shareCode): JsonResponse
     {
-        $playlist = Playlist::where('share_code', $code)
-            ->whereIn('visibility', ['public', 'unlisted'])
-            ->first();
+        $playlist = $this->getOwnedPlaylist($request, $shareCode);
 
-        if (! $playlist) {
-            return response()->json(['message' => 'Playlist not found.'], 404);
+        if ($playlist instanceof JsonResponse) {
+            return $playlist;
         }
 
-        $playlist->load(['user:id,name', 'items.liveset.edition']);
+        $newCode = $playlist->regenerateShareCode();
 
         return response()->json([
-            'playlist' => [
-                'id' => $playlist->id,
-                'name' => $playlist->name,
-                'description' => $playlist->description,
-                'visibility' => $playlist->visibility,
-                'user' => [
-                    'id' => $playlist->user->id,
-                    'name' => $playlist->user->name,
-                ],
-                'items' => $playlist->items->map(fn ($item) => [
-                    'id' => $item->id,
-                    'liveset_id' => $item->liveset_id,
-                    'position' => $item->position,
-                    'liveset' => $item->liveset ? [
-                        'id' => $item->liveset->id,
-                        'title' => $item->liveset->title,
-                        'artist_name' => $item->liveset->artist_name,
-                        'duration_in_seconds' => $item->liveset->duration_in_seconds,
-                        'edition' => $item->liveset->edition ? [
-                            'id' => $item->liveset->edition->id,
-                            'number' => $item->liveset->edition->number,
-                        ] : null,
-                    ] : null,
-                ]),
-                'created_at' => $playlist->created_at->toIso8601String(),
-            ],
+            'share_code' => $newCode,
+            'slug' => $playlist->slug,
         ]);
+    }
+
+    /**
+     * Get a playlist owned by the current user.
+     */
+    protected function getOwnedPlaylist(Request $request, string $shareCode): Playlist|JsonResponse
+    {
+        $playlist = Playlist::where('share_code', $shareCode)->first();
+
+        if (! $playlist) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        if ($playlist->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        return $playlist;
     }
 }

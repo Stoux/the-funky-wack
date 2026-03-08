@@ -4,6 +4,8 @@ import { ref, onMounted, computed } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAudioPlayer } from '@/composables/useAudioPlayer';
+import { useEditions } from '@/composables/useEditions';
 import {
     Select,
     SelectContent,
@@ -19,9 +21,22 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Play, Trash2, Share2, Copy, Check, Lock, Globe, Link as LinkIcon, Pencil } from 'lucide-vue-next';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ArrowLeft, Play, Trash2, Share2, Copy, Check, Lock, Globe, Link as LinkIcon, Pencil, RefreshCw, User } from 'lucide-vue-next';
 import UserMenu from '@/components/UserMenu.vue';
 import { formatDuration } from '@/lib/utils';
+
+const { playLiveset } = useAudioPlayer();
+const { findLivesetById } = useEditions();
 
 interface PlaylistItem {
     id: number;
@@ -41,41 +56,49 @@ interface Playlist {
     name: string;
     description: string | null;
     visibility: 'private' | 'public' | 'unlisted';
-    share_code: string | null;
+    share_code: string;
+    slug: string;
+    is_owner: boolean;
+    user: { id: number; name: string } | null;
     items: PlaylistItem[];
     created_at: string;
     updated_at: string;
 }
 
 const props = defineProps<{
-    playlistId: number;
+    shareCode: string;
+    isOwner: boolean;
 }>();
 
 const playlist = ref<Playlist | null>(null);
 const loading = ref(true);
 const editDialogOpen = ref(false);
 const shareDialogOpen = ref(false);
+const regenerateDialogOpen = ref(false);
 const editName = ref('');
 const editDescription = ref('');
 const editVisibility = ref<'private' | 'public' | 'unlisted'>('private');
 const saving = ref(false);
+const regenerating = ref(false);
 const copiedShareLink = ref(false);
 
 const shareUrl = computed(() => {
-    if (!playlist.value?.share_code) return '';
-    return `${window.location.origin}/p/${playlist.value.share_code}`;
+    if (!playlist.value) return '';
+    return `${window.location.origin}/playlists/${playlist.value.share_code}/${playlist.value.slug}`;
 });
+
+const isOwner = computed(() => playlist.value?.is_owner ?? props.isOwner);
 
 async function loadPlaylist() {
     loading.value = true;
     try {
-        const response = await fetch(`/api/playlists/${props.playlistId}`, {
+        const response = await fetch(`/api/playlists/${props.shareCode}`, {
             credentials: 'include',
         });
         if (response.ok) {
             const data = await response.json();
             playlist.value = data.playlist;
-        } else if (response.status === 403) {
+        } else if (response.status === 403 || response.status === 404) {
             router.visit(route('user.playlists'));
         }
     } catch (error) {
@@ -98,7 +121,7 @@ async function savePlaylist() {
 
     saving.value = true;
     try {
-        const response = await fetch(`/api/playlists/${playlist.value.id}`, {
+        const response = await fetch(`/api/playlists/${playlist.value.share_code}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -120,6 +143,14 @@ async function savePlaylist() {
                 ...data.playlist,
             };
             editDialogOpen.value = false;
+
+            // Redirect to new slug if name changed
+            if (data.playlist.slug !== props.shareCode.split('/')[1]) {
+                router.visit(route('playlist.show', {
+                    shareCode: playlist.value!.share_code,
+                    slug: playlist.value!.slug,
+                }), { preserveState: true });
+            }
         }
     } catch (error) {
         console.error('Failed to save playlist:', error);
@@ -132,7 +163,7 @@ async function removeItem(itemId: number, livesetId: number) {
     if (!playlist.value) return;
 
     try {
-        const response = await fetch(`/api/playlists/${playlist.value.id}/items/${livesetId}`, {
+        const response = await fetch(`/api/playlists/${playlist.value.share_code}/items/${livesetId}`, {
             method: 'DELETE',
             headers: {
                 'Accept': 'application/json',
@@ -153,7 +184,7 @@ async function deletePlaylist() {
     if (!playlist.value || !confirm('Are you sure you want to delete this playlist?')) return;
 
     try {
-        const response = await fetch(`/api/playlists/${playlist.value.id}`, {
+        const response = await fetch(`/api/playlists/${playlist.value.share_code}`, {
             method: 'DELETE',
             headers: {
                 'Accept': 'application/json',
@@ -167,6 +198,38 @@ async function deletePlaylist() {
         }
     } catch (error) {
         console.error('Failed to delete playlist:', error);
+    }
+}
+
+async function regenerateCode() {
+    if (!playlist.value) return;
+
+    regenerating.value = true;
+    try {
+        const response = await fetch(`/api/playlists/${playlist.value.share_code}/regenerate-code`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': getCsrfToken(),
+            },
+            credentials: 'include',
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            playlist.value.share_code = data.share_code;
+            regenerateDialogOpen.value = false;
+
+            // Redirect to new URL
+            router.visit(route('playlist.show', {
+                shareCode: data.share_code,
+                slug: data.slug,
+            }), { preserveState: true });
+        }
+    } catch (error) {
+        console.error('Failed to regenerate code:', error);
+    } finally {
+        regenerating.value = false;
     }
 }
 
@@ -197,6 +260,13 @@ function getCsrfToken(): string {
     return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
 }
 
+function handlePlay(livesetId: number) {
+    const result = findLivesetById(livesetId);
+    if (result) {
+        playLiveset(result.edition, result.liveset);
+    }
+}
+
 onMounted(() => {
     loadPlaylist();
 });
@@ -222,10 +292,14 @@ onMounted(() => {
                         <p v-if="playlist.description" class="text-sm text-muted-foreground">
                             {{ playlist.description }}
                         </p>
+                        <p v-if="!isOwner && playlist.user" class="text-sm text-muted-foreground flex items-center gap-1">
+                            <User class="h-3 w-3" />
+                            {{ playlist.user.name }}
+                        </p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <Button v-if="playlist" variant="outline" size="icon" @click="openEditDialog">
+                    <Button v-if="playlist && isOwner" variant="outline" size="icon" @click="openEditDialog">
                         <Pencil class="h-4 w-4" />
                     </Button>
                     <Button v-if="playlist && playlist.visibility !== 'private'" variant="outline" size="icon" @click="shareDialogOpen = true">
@@ -241,7 +315,7 @@ onMounted(() => {
 
             <div v-else-if="playlist && playlist.items.length === 0" class="text-center py-8">
                 <p class="text-muted-foreground">This playlist is empty.</p>
-                <p class="text-sm text-muted-foreground mt-2">
+                <p v-if="isOwner" class="text-sm text-muted-foreground mt-2">
                     Add livesets from the home page!
                 </p>
             </div>
@@ -253,7 +327,7 @@ onMounted(() => {
                     class="flex items-center justify-between p-4 rounded-lg border bg-card"
                 >
                     <div class="flex items-center space-x-4">
-                        <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full">
+                        <Button size="icon" variant="ghost" class="h-8 w-8 rounded-full" @click="handlePlay(item.liveset_id)">
                             <Play class="h-4 w-4" />
                         </Button>
                         <div>
@@ -270,14 +344,14 @@ onMounted(() => {
                         <span class="text-sm text-muted-foreground">
                             {{ item.liveset?.duration_in_seconds ? formatDuration(item.liveset.duration_in_seconds) : '' }}
                         </span>
-                        <Button variant="ghost" size="icon" class="h-8 w-8" @click="removeItem(item.id, item.liveset_id)">
+                        <Button v-if="isOwner" variant="ghost" size="icon" class="h-8 w-8" @click="removeItem(item.id, item.liveset_id)">
                             <Trash2 class="h-4 w-4 text-muted-foreground hover:text-destructive" />
                         </Button>
                     </div>
                 </div>
             </div>
 
-            <div v-if="playlist" class="pt-4 border-t">
+            <div v-if="playlist && isOwner" class="pt-4 border-t">
                 <Button variant="destructive" @click="deletePlaylist">
                     <Trash2 class="h-4 w-4 mr-2" />
                     Delete Playlist
@@ -336,12 +410,19 @@ onMounted(() => {
                     Share this playlist with others.
                 </DialogDescription>
             </DialogHeader>
-            <div class="py-4">
+            <div class="space-y-4 py-4">
                 <div class="flex items-center space-x-2">
                     <Input :value="shareUrl" readonly class="font-mono text-sm" />
                     <Button variant="outline" size="icon" @click="copyShareLink">
                         <Check v-if="copiedShareLink" class="h-4 w-4 text-green-500" />
                         <Copy v-else class="h-4 w-4" />
+                    </Button>
+                </div>
+
+                <div v-if="isOwner && playlist?.visibility === 'unlisted'" class="pt-4 border-t">
+                    <Button variant="outline" class="w-full" @click="regenerateDialogOpen = true">
+                        <RefreshCw class="h-4 w-4 mr-2" />
+                        Regenerate Link
                     </Button>
                 </div>
             </div>
@@ -350,4 +431,22 @@ onMounted(() => {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <!-- Regenerate Link Warning Dialog -->
+    <AlertDialog v-model:open="regenerateDialogOpen">
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Regenerate Link?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will create a new unique URL for this playlist. All previous links will stop working and anyone who has the old link will no longer be able to access the playlist.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction @click="regenerateCode" :disabled="regenerating">
+                    {{ regenerating ? 'Regenerating...' : 'Regenerate' }}
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
 </template>

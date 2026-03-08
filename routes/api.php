@@ -38,6 +38,10 @@ Route::prefix('playback')->middleware('throttle:30,1')->group(function () {
     Route::post('/track', [PlaybackController::class, 'recordPlay']);
 });
 
+// Public playlist endpoints (no auth required)
+Route::get('/playlists/public', [PlaylistController::class, 'publicIndex']);
+Route::get('/playlists/{shareCode}', [PlaylistController::class, 'show']);
+
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
     // Invite codes
@@ -66,14 +70,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/favorites/{liveset}', [FavoriteController::class, 'destroy']);
 
     // Playlists
-    Route::apiResource('playlists', PlaylistController::class);
-    Route::post('/playlists/{playlist}/items', [PlaylistController::class, 'addItem']);
-    Route::put('/playlists/{playlist}/items', [PlaylistController::class, 'reorderItems']);
-    Route::delete('/playlists/{playlist}/items/{liveset}', [PlaylistController::class, 'removeItem']);
+    Route::get('/playlists', [PlaylistController::class, 'index']);
+    Route::post('/playlists', [PlaylistController::class, 'store']);
+    Route::put('/playlists/{shareCode}', [PlaylistController::class, 'update']);
+    Route::delete('/playlists/{shareCode}', [PlaylistController::class, 'destroy']);
+    Route::post('/playlists/{shareCode}/items', [PlaylistController::class, 'addItem']);
+    Route::put('/playlists/{shareCode}/items', [PlaylistController::class, 'reorderItems']);
+    Route::delete('/playlists/{shareCode}/items/{liveset}', [PlaylistController::class, 'removeItem']);
+    Route::post('/playlists/{shareCode}/regenerate-code', [PlaylistController::class, 'regenerateCode']);
 });
-
-// Public shared playlist access
-Route::get('/playlists/shared/{code}', [PlaylistController::class, 'shared']);
 
 // Reverb webhook for presence channel events (disconnect detection)
 Route::post('/reverb/webhook', [ReverbWebhookController::class, 'handle'])

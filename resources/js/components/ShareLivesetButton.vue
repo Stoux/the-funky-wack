@@ -22,7 +22,13 @@ const props = defineProps<{
     buttonType?: ButtonVariants['variant'],
 }>();
 
-const open = ref(false);
+const isOpen = ref(false);
+
+function open() {
+    isOpen.value = true;
+}
+
+defineExpose({ open });
 
 // Whether to include the time in the URL; defaults to true
 const includeTime = ref(false);
@@ -34,7 +40,7 @@ const {currentLiveset, currentTime} = useNowPlayingState();
 
 // Update the time in the URL
 watch(currentTime, (t) => {
-    if (!open.value) return;
+    if (!isOpen.value) return;
     if (isDirty.value) return;
     if (currentLiveset.value?.id !== props.liveset.id) return;
     const seconds = Math.max(0, Math.floor(t));
@@ -43,8 +49,8 @@ watch(currentTime, (t) => {
 });
 
 // When dialog opens, initialize the fields
-watch(open, (isOpen) => {
-    if (isOpen) {
+watch(isOpen, (dialogIsOpen) => {
+    if (dialogIsOpen) {
         // Only include the time by default, when that liveset is currently playing.
         const isCurrentLiveset = currentLiveset.value?.id === props.liveset.id;
         includeTime.value = isCurrentLiveset;
@@ -160,7 +166,7 @@ function onTimeBlur() {
 </script>
 
 <template>
-    <Dialog v-model:open="open">
+    <Dialog v-model:open="isOpen">
         <DialogTrigger as-child>
             <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full"
                     title="Share this liveset">

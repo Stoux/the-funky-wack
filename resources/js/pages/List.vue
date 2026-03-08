@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {Edition, Liveset, LivesetQuality} from '@/types';
 import {watch, onMounted} from 'vue';
+import {Link} from '@inertiajs/vue3';
 import LivesetItem from "@/components/LivesetItem.vue";
 import AutoplayButton from "@/components/AutoplayButton.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
@@ -10,6 +11,8 @@ import TrackSearch from "@/components/TrackSearch.vue";
 import {useTrackSearch} from "@/composables/useTrackSearch";
 import UserMenu from "@/components/UserMenu.vue";
 import {useFavorites} from "@/composables/useFavorites";
+import {Button} from "@/components/ui/button";
+import {ListMusic} from "lucide-vue-next";
 
 // Get editions from shared Inertia props
 const { editions, sortedEditions } = useEditions();
@@ -97,6 +100,12 @@ watch(editions, (newEditions) => {
             <div class="flex space-y-2 md:space-y-0 space-x-2 flex-col md:flex-row items-center">
                 <AutoplayButton v-model:autoplaying="autoplaying" />
                 <TrackSearch />
+                <Link :href="route('user.playlists')">
+                    <Button variant="outline" size="sm">
+                        <ListMusic class="h-4 w-4 mr-2" />
+                        Playlists
+                    </Button>
+                </Link>
                 <UserMenu />
             </div>
         </div>

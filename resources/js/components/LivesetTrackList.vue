@@ -83,6 +83,12 @@ function goToTime(timestamp: number) {
     currentTime.value = timestamp;
 }
 
+function open() {
+    isOpen.value = true;
+}
+
+defineExpose({ open });
+
 </script>
 
 <template>

@@ -21,11 +21,30 @@ class PlaybackController extends Controller
      */
     public function history(Request $request): JsonResponse
     {
-        $history = $request->user()
+        $user = $request->user();
+        $currentClientId = $request->header('X-Client-ID');
+
+        // Pre-fetch all devices for this user
+        $devices = $user->devices->keyBy('client_id');
+
+        $history = $user
             ->playHistory()
             ->with('liveset:id,title,artist_name,edition_id')
             ->orderByDesc('created_at')
             ->paginate(20);
+
+        // Transform to include device info
+        $history->getCollection()->transform(function ($item) use ($devices, $currentClientId) {
+            $device = $item->client_id ? $devices->get($item->client_id) : null;
+
+            $item->device = $device ? [
+                'display_name' => $device->display_name,
+                'device_type' => $device->device_type,
+                'is_current' => $device->client_id === $currentClientId,
+            ] : null;
+
+            return $item;
+        });
 
         return response()->json($history);
     }

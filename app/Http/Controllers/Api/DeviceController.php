@@ -14,6 +14,8 @@ class DeviceController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $staleThreshold = now()->subDays(30);
+
         $devices = $request->user()
             ->devices()
             ->orderByDesc('last_seen_at')
@@ -26,6 +28,7 @@ class DeviceController extends Controller
                 'device_nickname' => $device->device_nickname,
                 'display_name' => $device->display_name,
                 'is_hidden' => $device->is_hidden,
+                'is_stale' => $device->last_seen_at->lt($staleThreshold),
                 'last_seen_at' => $device->last_seen_at->toIso8601String(),
                 'created_at' => $device->created_at->toIso8601String(),
             ]);
@@ -98,7 +101,7 @@ class DeviceController extends Controller
     }
 
     /**
-     * Delete device (soft delete).
+     * Delete device permanently.
      */
     public function destroy(Request $request, UserDevice $device): JsonResponse
     {

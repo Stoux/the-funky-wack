@@ -21,6 +21,25 @@ class Playlist extends Model
         'share_code',
     ];
 
+    protected $appends = ['slug'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Playlist $playlist) {
+            if (! $playlist->share_code) {
+                $playlist->share_code = static::generateShareCode();
+            }
+        });
+    }
+
+    /**
+     * Get URL-safe slug from playlist name.
+     */
+    public function getSlugAttribute(): string
+    {
+        return Str::slug($this->name) ?: 'playlist';
+    }
+
     /**
      * The user who owns this playlist.
      */
@@ -57,25 +76,23 @@ class Playlist extends Model
     }
 
     /**
-     * Generate a unique share code.
+     * Generate a unique share code (8 characters).
      */
     public static function generateShareCode(): string
     {
         do {
-            $code = Str::lower(Str::random(16));
-        } while (static::where('share_code', $code)->exists());
+            $code = Str::lower(Str::random(8));
+        } while (static::withTrashed()->where('share_code', $code)->exists());
 
         return $code;
     }
 
     /**
-     * Get or generate the share code.
+     * Regenerate the share code (invalidates old URLs).
      */
-    public function getOrCreateShareCode(): string
+    public function regenerateShareCode(): string
     {
-        if (! $this->share_code) {
-            $this->update(['share_code' => static::generateShareCode()]);
-        }
+        $this->update(['share_code' => static::generateShareCode()]);
 
         return $this->share_code;
     }

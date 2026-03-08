@@ -11,7 +11,7 @@ const form = useForm({
 });
 
 function submit() {
-    form.post(route('login.post'));
+    form.post(route('admin.login.post'));
 }
 
 </script>

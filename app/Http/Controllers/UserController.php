@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Playlist;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,7 +52,15 @@ class UserController extends Controller
     }
 
     /**
-     * Show the user's playlists.
+     * Show the user's devices.
+     */
+    public function devices(Request $request): Response
+    {
+        return Inertia::render('User/Devices');
+    }
+
+    /**
+     * Show playlists overview (user's playlists + public playlists).
      */
     public function playlists(Request $request): Response
     {
@@ -58,22 +68,35 @@ class UserController extends Controller
     }
 
     /**
-     * Show a specific playlist.
+     * Show a specific playlist by share code.
      */
-    public function playlist(Request $request, int $playlist): Response
+    public function playlist(Request $request, string $shareCode, ?string $slug = null): Response|RedirectResponse
     {
-        return Inertia::render('User/Playlist', [
-            'playlistId' => $playlist,
-        ]);
-    }
+        $playlist = Playlist::where('share_code', $shareCode)->first();
 
-    /**
-     * Show a shared playlist by code.
-     */
-    public function sharedPlaylist(string $code): Response
-    {
-        return Inertia::render('SharedPlaylist', [
-            'shareCode' => $code,
+        if (! $playlist) {
+            abort(404);
+        }
+
+        $user = $request->user();
+        $isOwner = $user && $playlist->user_id === $user->id;
+
+        // Check access - owner can always view, otherwise must be public/unlisted
+        if (! $isOwner && ! $playlist->isPubliclyAccessible()) {
+            abort(404);
+        }
+
+        // Redirect if slug doesn't match current name
+        if ($slug !== $playlist->slug) {
+            return redirect()->route('playlist.show', [
+                'shareCode' => $playlist->share_code,
+                'slug' => $playlist->slug,
+            ]);
+        }
+
+        return Inertia::render('User/Playlist', [
+            'shareCode' => $shareCode,
+            'isOwner' => $isOwner,
         ]);
     }
 }

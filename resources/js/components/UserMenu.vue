@@ -10,7 +10,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link } from '@inertiajs/vue3';
-import { User, Heart, History, ListMusic, LogOut, LogIn, UserPlus, Shield } from 'lucide-vue-next';
+import { User, Heart, History, ListMusic, Monitor, LogOut, LogIn, UserPlus, Shield } from 'lucide-vue-next';
 
 const { user, isAuthenticated, logout } = useAuth();
 </script>
@@ -54,6 +54,12 @@ const { user, isAuthenticated, logout } = useAuth();
                     <Link :href="route('user.playlists')" class="flex items-center cursor-pointer">
                         <ListMusic class="mr-2 h-4 w-4" />
                         Playlists
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child>
+                    <Link :href="route('user.devices')" class="flex items-center cursor-pointer">
+                        <Monitor class="mr-2 h-4 w-4" />
+                        Devices
                     </Link>
                 </DropdownMenuItem>
                 <template v-if="user?.is_admin">

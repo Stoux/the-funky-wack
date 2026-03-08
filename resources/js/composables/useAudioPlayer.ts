@@ -311,16 +311,21 @@ export function useAudioPlayer() {
     }
 
     /**
-     * Unmount the audio player
-     * Called by ListenBar when it unmounts (should not happen with persistent layout)
+     * Unmount the visual components (WaveSurfer) but keep audio playing
+     * Called by ListenBar when it unmounts during navigation
      */
     function unmount() {
-        waveInstance?.destroy();
-        waveInstance = undefined;
+        // Only destroy the visualization, not the audio
+        // Audio continues playing at module level
+        if (waveInstance) {
+            // Detach audio element before destroying WaveSurfer so it keeps playing
+            waveInstance.setOptions({ media: undefined });
+            waveInstance.destroy();
+            waveInstance = undefined;
+        }
         waveformContainer = null;
-        audioElement = undefined;
         isInitialized.value = false;
-        endPlayback();
+        // Note: audioElement is kept alive at module level, audio continues
     }
 
     /**
