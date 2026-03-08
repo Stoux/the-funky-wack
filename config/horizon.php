@@ -205,10 +205,19 @@ return [
                 'processes' => 10,
                 'tries' => 1,
             ],
+            'supervisor-playback' => [
+                'connection' => 'redis',
+                'queue' => ['playback'],
+                'balance' => 'auto',
+                'minProcesses' => 3,
+                'maxProcesses' => 10,
+                'tries' => 1,
+                'timeout' => 30,
+            ],
             'supervisor-long-running' => [
                 'connection' => 'redis-long-running',
                 'queue' => [
-                    'long-running-queue'
+                    'long-running-queue',
                 ],
                 'balance' => 'simple',
                 'processes' => 10,
@@ -225,10 +234,19 @@ return [
                 'processes' => 10,
                 'tries' => 1,
             ],
+            'supervisor-playback' => [
+                'connection' => 'redis',
+                'queue' => ['playback'],
+                'balance' => 'auto',
+                'minProcesses' => 2,
+                'maxProcesses' => 5,
+                'tries' => 1,
+                'timeout' => 30,
+            ],
             'supervisor-long-running' => [
                 'connection' => 'redis-long-running',
                 'queue' => [
-                    'long-running-queue'
+                    'long-running-queue',
                 ],
                 'balance' => 'simple',
                 'processes' => 9,

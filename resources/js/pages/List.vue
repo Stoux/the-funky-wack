@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {Edition, Liveset, LivesetFilesByQuality, LivesetQuality} from '@/types';
-import {computed, watch} from 'vue';
+import {computed, watch, onMounted} from 'vue';
 import ListenBar from "@/components/ListenBar.vue";
 import LivesetItem from "@/components/LivesetItem.vue";
 import AutoplayButton from "@/components/AutoplayButton.vue";
@@ -9,12 +9,21 @@ import {useNowPlayingState} from "@/composables/useNowPlayingState";
 import TrackSearch from "@/components/TrackSearch.vue";
 import {useTrackSearch} from "@/composables/useTrackSearch";
 import PlayLinkedLivesetDialog from "@/components/PlayLinkedLivesetDialog.vue";
+import UserMenu from "@/components/UserMenu.vue";
+import {useFavorites} from "@/composables/useFavorites";
 
 const props = defineProps<{
     editions: Edition[],
     // Not actual files but labels
     qualities: LivesetFilesByQuality,
 }>();
+
+// Initialize favorites from edition data
+const { initializeFavorites } = useFavorites();
+onMounted(() => {
+    const allLivesets = props.editions.flatMap(edition => edition.livesets || []);
+    initializeFavorites(allLivesets);
+});
 
 // Sort editions by number in descending order (newest first)
 const sortedEditions = computed(() => {
@@ -102,9 +111,10 @@ trackSearch.withEditions(props.editions);
                 <span class="text-muted-foreground">Wacky beats, the recordings.</span>
             </h2>
 
-            <div class="flex space-y-2 md:space-y-0 space-x-2 flex-col md:flex-row">
+            <div class="flex space-y-2 md:space-y-0 space-x-2 flex-col md:flex-row items-center">
                 <AutoplayButton v-model:autoplaying="autoplaying" />
                 <TrackSearch />
+                <UserMenu />
             </div>
         </div>
 

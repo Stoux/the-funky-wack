@@ -16,6 +16,7 @@ import HoverPlugin from "wavesurfer.js/plugins/hover";
 import {useTracklistNowPlaying} from "@/composables/useTracklistNowPlaying";
 import {determineNowPlayingTrack} from "@/lib/tracklist.utils";
 import ShareLivesetButton from "@/components/ShareLivesetButton.vue";
+import {usePlaybackSync} from "@/composables/usePlaybackSync";
 
 const props = defineProps<{
     edition: Edition,
@@ -39,6 +40,19 @@ const {
 
 const castMedia = useCastMedia();
 const audioElement = useTemplateRef('audio');
+
+const {
+    startPlayback,
+    setPosition: syncSetPosition,
+    endPlayback,
+    changeQuality: syncChangeQuality,
+    onPlay: syncOnPlay,
+    onPause: syncOnPause,
+} = usePlaybackSync();
+
+// Track if this is the initial quality setup (vs user changing quality)
+let isInitialQuality = true;
+let lastQuality: string | undefined = undefined;
 
 let waveInstance: WaveSurfer|undefined = undefined;
 const loadingSource = ref<string|undefined>(undefined);
@@ -73,7 +87,10 @@ watch(playing, shouldBePlaying => {
 
     // Note: the isPlaying === what we should have as state
     if (shouldBePlaying) {
-        waveInstance.play();
+        waveInstance.play()?.catch((e: Error) => {
+            // Ignore AbortError - happens when play() is interrupted by new track load
+            if (e.name !== 'AbortError') throw e;
+        });
     } else {
         waveInstance.pause();
     }
@@ -85,8 +102,23 @@ watch(currentTime, shouldBeAtTime => {
         return;
     }
 
-    waveInstance.play(shouldBeAtTime);
+    waveInstance.play(shouldBeAtTime)?.catch((e: Error) => {
+        // Ignore AbortError - happens when play() is interrupted by new track load
+        if (e.name !== 'AbortError') throw e;
+    });
 })
+
+// Watch for quality changes and sync to server
+watch(quality, (newQuality) => {
+    // Skip the initial quality setup
+    if (isInitialQuality || !lastQuality || newQuality === lastQuality) {
+        lastQuality = newQuality;
+        return;
+    }
+
+    lastQuality = newQuality;
+    syncChangeQuality(newQuality);
+});
 
 function checkAvailableQuality() {
     if (source.value) {
@@ -109,6 +141,10 @@ async function initPlayer() {
     if (source.value && source.value === loadingSource.value) {
         return;
     }
+
+    // End current playback session FIRST to prevent false seek detection
+    // when currentTime changes to 0 for the new track
+    await endPlayback();
 
     // Destroy the old instance
     waveInstance?.destroy();
@@ -206,12 +242,15 @@ async function initPlayer() {
 
     surfer.on('play', () => {
         playing.value = true;
+        syncOnPlay();
     })
     surfer.on('pause', () => {
         playing.value = false;
+        syncOnPause();
     })
 
     surfer.on('ready', () => {
+        console.log('[ListenBar] WaveSurfer ready, starting playback tracking');
         loading.value = false;
 
         // Super hacky: Re-enable remote playback on the audio element & force another prompt.
@@ -224,7 +263,15 @@ async function initPlayer() {
             })
         }
 
-        // PLay the track at the last configured time (probably 0 if new liveset or a given timestamp when restoring / playing specific track)
+        // Mark initial quality as set so future changes trigger sync
+        isInitialQuality = false;
+        lastQuality = quality.value;
+
+        // Start tracking this playback session
+        console.log('[ListenBar] Calling startPlayback:', props.liveset.id, currentTime.value, quality.value);
+        startPlayback(props.liveset.id, currentTime.value, quality.value);
+
+        // Play the track at the last configured time (probably 0 if new liveset or a given timestamp when restoring / playing specific track)
         surfer.play(currentTime.value);
 
         castMedia.withAudioElement(audioElement.value ?? undefined);
@@ -233,6 +280,7 @@ async function initPlayer() {
     surfer.on('finish', () => {
         finished.value = true;
         playing.value = false;
+        endPlayback();
     })
 
     surfer.on('timeupdate', (time) => {
@@ -241,7 +289,9 @@ async function initPlayer() {
             return;
         }
 
-        currentTime.value = Math.floor( time );
+        const flooredTime = Math.floor(time);
+        currentTime.value = flooredTime;
+        syncSetPosition(flooredTime);
     })
 }
 
@@ -254,6 +304,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     waveInstance?.destroy();
     waveInstance = undefined;
+    endPlayback();
 })
 
 

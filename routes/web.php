@@ -4,29 +4,45 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\EditionController;
 use App\Http\Controllers\Admin\LivesetController;
 use App\Http\Controllers\Admin\LivesetFilesController;
-use App\Http\Controllers\Admin\LoginController;
+use App\Http\Controllers\Admin\LoginController as AdminLoginController;
 use App\Http\Controllers\Admin\UtilController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ListController;
-use App\Http\Controllers\ApiController;
 use App\Http\Controllers\PosterController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [ ListController::class, 'index'])->name('home');
+Route::get('/', [ListController::class, 'index'])->name('home');
 
 // Versioned, cache-busting asset route for posters and images
 Route::get('/images/{version}/{path}', [PosterController::class, 'show'])
     ->where('path', '.*')
     ->name('storage.versioned-images');
 
-// Public API endpoints
-Route::prefix('api')->group(function () {
-    Route::get('/editions', [ApiController::class, 'editions'])->name('api.editions');
+// User authentication routes
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'index'])->name('auth.login');
+    Route::post('/login', [LoginController::class, 'login'])->name('auth.login.post');
+    Route::get('/register', [RegisterController::class, 'index'])->name('auth.register');
+    Route::post('/register', [RegisterController::class, 'register'])->name('auth.register.post');
 });
 
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [LoginController::class, 'logout'])->name('auth.logout');
+    Route::get('/profile', [UserController::class, 'profile'])->name('user.profile');
+    Route::get('/history', [UserController::class, 'history'])->name('user.history');
+    Route::get('/favorites', [UserController::class, 'favorites'])->name('user.favorites');
+    Route::get('/playlists', [UserController::class, 'playlists'])->name('user.playlists');
+    Route::get('/playlists/{playlist}', [UserController::class, 'playlist'])->name('user.playlist');
+});
 
-Route::get('/login', [LoginController::class, 'index'])->name('login');
-Route::post('/login', [LoginController::class, 'login'])->name('login.post');
+// Public shared playlist
+Route::get('/p/{code}', [UserController::class, 'sharedPlaylist'])->name('playlist.shared');
 
+// Admin login (separate from user login)
+Route::get('/admin/login', [AdminLoginController::class, 'index'])->name('admin.login');
+Route::post('/admin/login', [AdminLoginController::class, 'login'])->name('admin.login.post');
 
 Route::middleware('admin')->prefix('/admin')->group(function () {
 

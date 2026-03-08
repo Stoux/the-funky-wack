@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
@@ -28,7 +29,7 @@ class Liveset extends Model
     protected function casts()
     {
         return [
-            'started_at' =>  'datetime',
+            'started_at' => 'datetime',
         ];
     }
 
@@ -49,7 +50,7 @@ class Liveset extends Model
 
     public function audioWaveformUrl(): ?string
     {
-        if (!$this->audio_waveform_path) {
+        if (! $this->audio_waveform_path) {
             return null;
         }
 
@@ -58,4 +59,20 @@ class Liveset extends Model
         return $disk->exists($this->audio_waveform_path) ? $disk->url($this->audio_waveform_path) : null;
     }
 
+    /**
+     * Play history for this liveset.
+     */
+    public function playHistory(): HasMany
+    {
+        return $this->hasMany(PlayHistory::class);
+    }
+
+    /**
+     * Users who have favorited this liveset.
+     */
+    public function favoritedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'favorites')
+            ->withTimestamps();
+    }
 }

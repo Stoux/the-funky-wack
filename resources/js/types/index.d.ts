@@ -30,6 +30,7 @@ export interface User {
     email: string;
     avatar?: string;
     email_verified_at: string | null;
+    is_admin: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -82,7 +83,10 @@ export type Liveset = {
     audio_waveform_path?: string,
     audio_waveform_url?: string,
     tracks?: LivesetTrack[],
-    files?: LivesetFilesByQuality
+    files?: LivesetFilesByQuality,
+    plays_count?: number,
+    favorites_count?: number,
+    is_favorited?: boolean,
 }
 
 export type LivesetTrack = {
@@ -104,4 +108,77 @@ export type LivesetFile = {
     converting: boolean,
 }
 
+// User account types
+export interface InviteCode {
+    id: number;
+    code: string;
+    used_by?: { id: number; name: string } | null;
+    used_at?: string | null;
+    created_at: string;
+}
 
+export interface PlayHistoryItem {
+    id: number;
+    liveset_id: number;
+    liveset?: Liveset | null;
+    started_at_position: number;
+    ended_at_position: number | null;
+    duration_listened: number;
+    quality: string | null;
+    platform: string;
+    created_at: string;
+}
+
+export interface PlaybackPosition {
+    liveset_id: number;
+    liveset?: Liveset | null;
+    position: number;
+    updated_at: string;
+    device?: {
+        client_id: string;
+        device_name: string;
+        device_nickname: string | null;
+        display_name: string;
+        is_current: boolean;
+    } | null;
+}
+
+export type DeviceType = 'mobile' | 'desktop' | 'tablet' | 'car' | 'other';
+
+export interface UserDevice {
+    id: number;
+    client_id: string;
+    device_type: DeviceType;
+    device_name: string;
+    device_nickname: string | null;
+    display_name: string;
+    is_hidden: boolean;
+    last_seen_at: string;
+    created_at: string;
+}
+
+export interface Favorite {
+    liveset_id: number;
+    created_at: string;
+}
+
+export type PlaylistVisibility = 'private' | 'public' | 'unlisted';
+
+export interface Playlist {
+    id: number;
+    name: string;
+    description?: string | null;
+    visibility: PlaylistVisibility;
+    share_code?: string | null;
+    items?: PlaylistItem[];
+    items_count?: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PlaylistItem {
+    id: number;
+    liveset_id: number;
+    liveset?: Liveset | null;
+    position: number;
+}

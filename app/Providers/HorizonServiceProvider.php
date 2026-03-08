@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Http\Middleware\AdminLoggedIn;
+use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\HorizonApplicationServiceProvider;
 
@@ -23,8 +23,8 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      */
     protected function gate(): void
     {
-        Gate::define('viewHorizon', function ($user = null) {
-            return $this->app->get(AdminLoggedIn::class)->isLoggedIn();
+        Gate::define('viewHorizon', function (?User $user = null) {
+            return $user?->is_admin === true;
         });
     }
 }
