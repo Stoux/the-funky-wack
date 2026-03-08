@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ListenBar from '@/components/ListenBar.vue';
 import ContinuePlayingBar from '@/components/ContinuePlayingBar.vue';
+import RemoteContinueBar from '@/components/RemoteContinueBar.vue';
 import PlayLinkedLivesetDialog from '@/components/PlayLinkedLivesetDialog.vue';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 import { useDeviceRegistration } from '@/composables/useDeviceRegistration';
@@ -30,8 +31,11 @@ useDeviceRegistration();
             <ListenBar v-if="currentLiveset && currentEdition" />
         </Transition>
 
-        <!-- Continue playing bar (for restoring previous session) -->
+        <!-- Continue playing bar (for restoring previous session from same device) -->
         <ContinuePlayingBar />
+
+        <!-- Remote continue bar (for continuing from other devices) -->
+        <RemoteContinueBar />
 
         <!-- Dialog for playing linked livesets from URL parameters -->
         <PlayLinkedLivesetDialog />

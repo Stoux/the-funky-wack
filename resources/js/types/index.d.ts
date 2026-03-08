@@ -136,6 +136,7 @@ export interface PlaybackPosition {
     updated_at: string;
     device?: {
         client_id: string;
+        device_type: DeviceType;
         device_name: string;
         device_nickname: string | null;
         display_name: string;

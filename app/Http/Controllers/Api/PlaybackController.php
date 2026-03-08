@@ -221,6 +221,7 @@ class PlaybackController extends Controller
                     'updated_at' => $position->updated_at->toIso8601String(),
                     'device' => $device ? [
                         'client_id' => $device->client_id,
+                        'device_type' => $device->device_type,
                         'device_name' => $device->device_name,
                         'device_nickname' => $device->device_nickname,
                         'display_name' => $device->display_name,
