@@ -1,43 +1,43 @@
 import { ref, onUnmounted } from 'vue';
-import { useEcho, useEchoModel } from '@laravel/echo-vue';
+import { echo } from '@laravel/echo-vue';
 import type { User } from '@/types';
 
 /**
  * Composable for managing Reverb WebSocket connections and channels.
  */
 export function useReverb() {
-    const echo = useEcho();
+    const echoInstance = echo();
 
     /**
      * Join a private channel for the authenticated user.
      */
     function joinUserChannel(userId: number) {
-        return echo.private(`user.${userId}`);
+        return echoInstance.private(`user.${userId}`);
     }
 
     /**
      * Join a session channel for playback tracking.
      */
     function joinSessionChannel(sessionId: string) {
-        return echo.private(`session.${sessionId}`);
+        return echoInstance.private(`session.${sessionId}`);
     }
 
     /**
      * Join a presence channel to track live listeners.
      */
     function joinPresenceChannel(channelName: string) {
-        return echo.join(channelName);
+        return echoInstance.join(channelName);
     }
 
     /**
      * Leave a channel.
      */
     function leaveChannel(channelName: string) {
-        echo.leave(channelName);
+        echoInstance.leave(channelName);
     }
 
     return {
-        echo,
+        echo: echoInstance,
         joinUserChannel,
         joinSessionChannel,
         joinPresenceChannel,
@@ -52,9 +52,9 @@ export function useLiveListeners(livesetId: number) {
     const listenerCount = ref(0);
     const listeners = ref<User[]>([]);
 
-    const { echo } = useReverb();
+    const { echo: echoInstance } = useReverb();
 
-    const channel = echo.join(`liveset.${livesetId}`)
+    const channel = echoInstance.join(`liveset.${livesetId}`)
         .here((users: User[]) => {
             listeners.value = users;
             listenerCount.value = users.length;
@@ -69,7 +69,7 @@ export function useLiveListeners(livesetId: number) {
         });
 
     onUnmounted(() => {
-        echo.leave(`liveset.${livesetId}`);
+        echoInstance.leave(`liveset.${livesetId}`);
     });
 
     return {

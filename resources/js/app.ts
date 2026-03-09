@@ -10,16 +10,16 @@ import { configureEcho } from '@laravel/echo-vue';
 import FrontLayout from './layouts/FrontLayout.vue';
 
 const echoConfig = {
-    broadcaster: 'reverb',
+    broadcaster: 'reverb' as const,
     key: import.meta.env.VITE_REVERB_APP_KEY,
     wsHost: import.meta.env.VITE_REVERB_HOST,
     wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
     wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
     forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-    enabledTransports: ['ws', 'wss'],
+    enabledTransports: ['ws', 'wss'] as ('ws' | 'wss')[],
     authEndpoint: '/api/broadcast/auth',
     authorizer: (channel: { name: string }) => ({
-        authorize: (socketId: string, callback: (error: boolean, data: unknown) => void) => {
+        authorize: (socketId: string, callback: (error: Error | null, data: { auth: string; channel_data?: string } | null) => void) => {
             fetch('/api/broadcast/auth', {
                 method: 'POST',
                 headers: {
@@ -40,11 +40,11 @@ const echoConfig = {
                     return response.json();
                 })
                 .then(data => {
-                    callback(false, data);
+                    callback(null, data);
                 })
                 .catch(error => {
                     console.error('[Echo] Auth error:', error);
-                    callback(true, error);
+                    callback(error instanceof Error ? error : new Error(String(error)), null);
                 });
         },
     }),
