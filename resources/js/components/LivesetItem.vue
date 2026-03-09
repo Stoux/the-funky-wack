@@ -179,13 +179,15 @@ function handleAddToQueue() {
             </DropdownMenu>
         </div>
 
-        <div class="text-sm text-muted-foreground ml-2 shrink-0">
+        <div class="text-sm text-muted-foreground ml-2 shrink-0 font-mono tabular-nums">
             {{ formatDuration(liveset.duration_in_seconds) }}
         </div>
 
-        <!-- Hidden components triggered by menu -->
-        <ShareLivesetButton ref="shareRef" :edition="edition" :liveset="liveset" class="hidden" />
-        <AddToPlaylistButton ref="addToPlaylistRef" :liveset-id="liveset.id" class="hidden" />
+        <!-- Hidden components triggered by overflow menu -->
+        <div class="hidden">
+            <ShareLivesetButton ref="shareRef" :edition="edition" :liveset="liveset" />
+            <AddToPlaylistButton ref="addToPlaylistRef" :liveset-id="liveset.id" />
+        </div>
     </div>
 </template>
 

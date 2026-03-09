@@ -111,15 +111,15 @@ watch(editions, (newEditions) => {
 
 <template>
     <div class="flex h-full flex-1 flex-col gap-4 p-4">
-        <div class="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center">
+        <div class="space-y-3">
             <h2 class="text-4xl font-bold">
                 The Funky Wack -
                 <span class="text-muted-foreground">Wacky beats, the recordings.</span>
             </h2>
 
-            <div class="flex space-y-2 md:space-y-0 space-x-2 flex-col md:flex-row items-center">
-                <AutoplayButton v-model:autoplaying="autoplaying" />
+            <div class="flex flex-wrap items-center gap-2">
                 <TrackSearch />
+                <AutoplayButton v-model:autoplaying="autoplaying" />
                 <Link :href="route('live')">
                     <Button variant="outline" size="sm" class="relative">
                         <Radio class="h-4 w-4 mr-2" />
