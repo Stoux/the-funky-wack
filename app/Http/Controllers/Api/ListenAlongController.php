@@ -87,7 +87,7 @@ class ListenAlongController extends Controller
      */
     public function leave(Request $request, string $channelToken): JsonResponse
     {
-        $clientId = $request->header('X-Client-ID');
+        $clientId = $request->header('X-Client-ID') ?? $request->input('client_id');
         if (! $clientId) {
             return response()->json(['message' => 'X-Client-ID header is required.'], 422);
         }
@@ -110,11 +110,50 @@ class ListenAlongController extends Controller
             return response()->json(['message' => 'X-Client-ID header is required.'], 422);
         }
 
-        $this->listenAlongService->detachListener(
+        $newRoom = $this->listenAlongService->detachListener(
             channelToken: $channelToken,
             clientId: $clientId
         );
 
-        return response()->json(['message' => 'Detached to independent mode.']);
+        return response()->json([
+            'message' => 'Detached to independent mode.',
+            'new_room_token' => $newRoom?->channel_token,
+        ]);
+    }
+
+    /**
+     * Pause sync (listener paused their playback).
+     */
+    public function pauseSync(Request $request, string $channelToken): JsonResponse
+    {
+        $clientId = $request->header('X-Client-ID');
+        if (! $clientId) {
+            return response()->json(['message' => 'X-Client-ID header is required.'], 422);
+        }
+
+        $this->listenAlongService->pauseSync(
+            channelToken: $channelToken,
+            clientId: $clientId
+        );
+
+        return response()->json(['message' => 'Sync paused.']);
+    }
+
+    /**
+     * Resume sync (listener resumed playback and chose to resync).
+     */
+    public function resumeSync(Request $request, string $channelToken): JsonResponse
+    {
+        $clientId = $request->header('X-Client-ID');
+        if (! $clientId) {
+            return response()->json(['message' => 'X-Client-ID header is required.'], 422);
+        }
+
+        $this->listenAlongService->resumeSync(
+            channelToken: $channelToken,
+            clientId: $clientId
+        );
+
+        return response()->json(['message' => 'Sync resumed.']);
     }
 }

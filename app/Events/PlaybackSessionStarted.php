@@ -5,17 +5,18 @@ namespace App\Events;
 use App\Models\PlayHistory;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class PlaybackSessionStarted implements ShouldBroadcast
+class PlaybackSessionStarted implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
         public PlayHistory $playHistory,
-        public string $sessionId
+        public string $sessionId,
+        public ?string $roomToken = null
     ) {}
 
     public function broadcastOn(): array
@@ -37,6 +38,7 @@ class PlaybackSessionStarted implements ShouldBroadcast
             'liveset_id' => $this->playHistory->liveset_id,
             'position' => $this->playHistory->started_at_position,
             'quality' => $this->playHistory->quality,
+            'room_token' => $this->roomToken,
         ];
     }
 }

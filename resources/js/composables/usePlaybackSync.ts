@@ -3,6 +3,7 @@ import { echo } from '@laravel/echo-vue';
 import { usePage } from '@inertiajs/vue3';
 import { useAuth } from './useAuth';
 import { getClientId } from './useDeviceId';
+import { useListenAlong } from './useListenAlong';
 
 interface PlaybackState {
     livesetId: number;
@@ -62,6 +63,7 @@ getClientId().then(id => { cachedClientId = id; }).catch(() => {});
 export function usePlaybackSync() {
     const { isAuthenticated } = useAuth();
     const echoInstance = echo();
+    const { setupHost, teardownHost } = useListenAlong();
 
     // Setup beforeunload handler once
     if (!hasSetupBeforeUnload) {
@@ -126,7 +128,7 @@ export function usePlaybackSync() {
                 isConnected.value = false;
             })
             // Listen for server-broadcast events
-            .listen('.session.started', (event: PlaybackEvent) => {
+            .listen('.session.started', (event: PlaybackEvent & { room_token?: string }) => {
                 console.log('[PlaybackSync] Session started event received:', event);
 
                 // If we're waiting for a start response, resolve it
@@ -136,6 +138,11 @@ export function usePlaybackSync() {
                 } else if (currentPlayback.value) {
                     // Update play_history_id if this is from another tab/device
                     currentPlayback.value.playHistoryId = event.play_history_id;
+                }
+
+                // Set up as host if a room was created for us
+                if (event.room_token) {
+                    setupHost(event.room_token);
                 }
             })
             .listen('.session.expired', (event: PlaybackEvent) => {
@@ -458,6 +465,7 @@ export function usePlaybackSync() {
 
         currentPlayback.value = null;
         resetPlayTime();
+        teardownHost();
         // Leave presence channel when playback ends
         leavePresenceChannel();
     }

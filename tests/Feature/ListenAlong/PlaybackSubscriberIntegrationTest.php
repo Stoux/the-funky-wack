@@ -2,10 +2,12 @@
 
 use App\Events\ListenAlongHostAction;
 use App\Events\LiveSessionsUpdated;
+use App\Jobs\EndListenRoomIfStale;
 use App\Listeners\PlaybackEventSubscriber;
 use App\Models\ListenRoom;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     $this->subscriber = app(PlaybackEventSubscriber::class);
@@ -303,6 +305,89 @@ test('no broadcast when room has no synced listeners', function () {
     );
 
     Event::assertNotDispatched(ListenAlongHostAction::class);
+});
+
+test('track switch: stop then start keeps the same room', function () {
+    Event::fake();
+    Queue::fake();
+
+    // Host starts playing — creates a room
+    $playHistory = $this->subscriber->handleStart(
+        sessionId: $this->sessionId,
+        livesetId: $this->liveset->id,
+        position: 0,
+        quality: 'hq',
+        clientId: 'client-1',
+        userId: $this->user->id,
+    );
+
+    $room = ListenRoom::whereNull('ended_at')->first();
+    expect($room)->not->toBeNull();
+
+    // Host stops (track switch — job is queued but not executed)
+    $this->subscriber->handleStop(
+        sessionId: $this->sessionId,
+        playHistoryId: $playHistory->id,
+        position: 300,
+        durationListened: 300,
+    );
+
+    Queue::assertPushed(EndListenRoomIfStale::class);
+
+    // Room should still be active (job hasn't run yet)
+    $room->refresh();
+    expect($room->ended_at)->toBeNull();
+
+    // Host starts new track — cancels the pending end
+    $newPlayHistory = $this->subscriber->handleStart(
+        sessionId: $this->sessionId,
+        livesetId: $this->secondLiveset->id,
+        position: 0,
+        quality: 'hq',
+        clientId: 'client-1',
+        userId: $this->user->id,
+    );
+
+    // Still only one active room (same room, updated track)
+    expect(ListenRoom::whereNull('ended_at')->count())->toBe(1);
+
+    $room->refresh();
+    expect($room->ended_at)->toBeNull();
+    expect($room->host->play_history_id)->toBe($newPlayHistory->id);
+});
+
+test('handleStart skips room creation when client is an active listener', function () {
+    Event::fake();
+
+    // Host A starts playing — creates a room
+    $hostPlayHistory = $this->subscriber->handleStart(
+        sessionId: 'host-session',
+        livesetId: $this->liveset->id,
+        position: 0,
+        quality: 'hq',
+        clientId: 'host-client',
+        userId: $this->user->id,
+    );
+
+    $hostRoom = ListenRoom::whereNull('ended_at')->first();
+
+    // Listener joins Host A's room
+    app(\App\Services\ListenAlongService::class)->joinRoom(
+        $hostRoom->channel_token, 'listener-client', null, 'synced'
+    );
+
+    // Listener starts playing (via listen-along) — should NOT create a new room
+    $listenerPlayHistory = $this->subscriber->handleStart(
+        sessionId: 'listener-session',
+        livesetId: $this->liveset->id,
+        position: 0,
+        quality: 'hq',
+        clientId: 'listener-client',
+        userId: null,
+    );
+
+    // Still only one active room
+    expect(ListenRoom::whereNull('ended_at')->count())->toBe(1);
 });
 
 test('full lifecycle: start, seek, pause, resume, stop', function () {

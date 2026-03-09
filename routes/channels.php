@@ -28,4 +28,8 @@ Broadcast::channel('liveset.{livesetId}', function (?User $user, int $livesetId)
     ];
 });
 
-// Listen-along channels are authorized via BroadcastAuthController (guest-friendly, no session required)
+// Listen-along & live channels (presence-listen-along.{token}, presence-live)
+// Authorized in BroadcastAuthController::authorizeGuestPresenceChannel() — NOT here.
+// Laravel's default Broadcast::channel() requires an authenticated user, but these
+// channels must support anonymous guests. The custom controller handles HMAC signing
+// and user_info directly. See: app/Http/Controllers/BroadcastAuthController.php

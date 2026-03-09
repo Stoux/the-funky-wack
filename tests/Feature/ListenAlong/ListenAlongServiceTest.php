@@ -181,6 +181,35 @@ test('detachListener changes mode to independent and sets left_at', function () 
         ->and($member->left_at)->not->toBeNull();
 });
 
+test('pauseSync sets sync_paused_at on listener', function () {
+    Event::fake();
+
+    $room = $this->service->createRoom($this->playHistory);
+    $this->service->joinRoom($room->channel_token, 'listener-client', null, 'synced');
+
+    $this->service->pauseSync($room->channel_token, 'listener-client');
+
+    $member = ListenRoomMember::where('client_id', 'listener-client')
+        ->where('role', 'listener')
+        ->first();
+    expect($member->sync_paused_at)->not->toBeNull();
+});
+
+test('resumeSync clears sync_paused_at on listener', function () {
+    Event::fake();
+
+    $room = $this->service->createRoom($this->playHistory);
+    $this->service->joinRoom($room->channel_token, 'listener-client', null, 'synced');
+    $this->service->pauseSync($room->channel_token, 'listener-client');
+
+    $this->service->resumeSync($room->channel_token, 'listener-client');
+
+    $member = ListenRoomMember::where('client_id', 'listener-client')
+        ->where('role', 'listener')
+        ->first();
+    expect($member->sync_paused_at)->toBeNull();
+});
+
 test('findActiveRoomForSession returns the active room', function () {
     Event::fake();
 

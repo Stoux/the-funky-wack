@@ -103,6 +103,7 @@ class BroadcastAuthController extends Controller
             'user_info' => [
                 'user_id' => $user?->id,
                 'user_name' => $user?->name ?? 'Anonymous',
+                'client_id' => $request->input('client_id'),
             ],
         ];
 

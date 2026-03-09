@@ -105,6 +105,8 @@ class ListenAlongService
                 'quality' => $playHistory->quality,
             ]));
         }
+
+        event(new LiveSessionsUpdated);
     }
 
     /**
@@ -208,11 +210,11 @@ class ListenAlongService
     /**
      * Detach a synced listener to independent mode.
      */
-    public function detachListener(string $channelToken, string $clientId): void
+    public function detachListener(string $channelToken, string $clientId): ?ListenRoom
     {
         $room = ListenRoom::where('channel_token', $channelToken)->first();
         if (! $room) {
-            return;
+            return null;
         }
 
         $member = $room->activeMembers()
@@ -221,7 +223,7 @@ class ListenAlongService
             ->first();
 
         if (! $member) {
-            return;
+            return null;
         }
 
         $member->update([
@@ -235,7 +237,63 @@ class ListenAlongService
             'count' => $count,
         ]));
 
+        // Create a new room for the detached listener's active playback
+        $newRoom = null;
+        if ($member->client_id) {
+            $playHistory = PlayHistory::where('client_id', $member->client_id)
+                ->whereNull('ended_at_position')
+                ->whereNull('disconnected_at')
+                ->latest()
+                ->first();
+
+            if ($playHistory) {
+                $newRoom = $this->createRoom($playHistory);
+            }
+        }
+
         event(new LiveSessionsUpdated);
+
+        return $newRoom;
+    }
+
+    /**
+     * Pause sync for a listener (they paused playback while synced).
+     */
+    public function pauseSync(string $channelToken, string $clientId): void
+    {
+        $room = ListenRoom::where('channel_token', $channelToken)->first();
+        if (! $room) {
+            return;
+        }
+
+        $member = $room->activeMembers()
+            ->where('client_id', $clientId)
+            ->where('role', 'listener')
+            ->first();
+
+        if ($member) {
+            $member->update(['sync_paused_at' => now()]);
+        }
+    }
+
+    /**
+     * Resume sync for a listener.
+     */
+    public function resumeSync(string $channelToken, string $clientId): void
+    {
+        $room = ListenRoom::where('channel_token', $channelToken)->first();
+        if (! $room) {
+            return;
+        }
+
+        $member = $room->activeMembers()
+            ->where('client_id', $clientId)
+            ->where('role', 'listener')
+            ->first();
+
+        if ($member) {
+            $member->update(['sync_paused_at' => null]);
+        }
     }
 
     /**
@@ -326,6 +384,19 @@ class ListenAlongService
         $user = User::select('id', 'name', 'listening_visibility')->find($userId);
 
         return $this->resolveDisplayNameFromUser($user, $viewerUserId, $viewerAuthenticated);
+    }
+
+    /**
+     * Check if a client is currently an active listener in any room.
+     */
+    public function isActiveListener(string $clientId): bool
+    {
+        return ListenRoomMember::query()
+            ->where('client_id', $clientId)
+            ->where('role', 'listener')
+            ->whereNull('left_at')
+            ->whereHas('room', fn ($q) => $q->whereNull('ended_at'))
+            ->exists();
     }
 
     /**

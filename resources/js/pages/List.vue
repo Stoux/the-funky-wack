@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {Edition, Liveset, LivesetQuality} from '@/types';
-import {watch, onMounted} from 'vue';
+import {watch, onMounted, onBeforeUnmount} from 'vue';
 import {Link} from '@inertiajs/vue3';
 import LivesetItem from "@/components/LivesetItem.vue";
 import AutoplayButton from "@/components/AutoplayButton.vue";
@@ -91,10 +91,14 @@ const possiblyAutoplayNextLiveset = () => {
     }
 }
 
-// Listen Along - fetch session count for nav indicator
-const { totalListeners, fetchSessions: fetchLiveSessions } = useListenAlong();
+// Listen Along - fetch session count for nav indicator, with real-time updates
+const { totalListeners, fetchSessions: fetchLiveSessions, joinLiveChannel, leaveLiveChannel } = useListenAlong();
 onMounted(() => {
     fetchLiveSessions();
+    joinLiveChannel();
+});
+onBeforeUnmount(() => {
+    leaveLiveChannel();
 });
 
 // Pass the editions to the track search

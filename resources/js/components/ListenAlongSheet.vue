@@ -27,6 +27,16 @@ const { findLivesetById } = useEditions();
 const joining = ref(false);
 const open = ref(false);
 
+function estimatedPosition(): number {
+    const base = props.session.position;
+    const updatedAt = props.session.position_updated_at ? new Date(props.session.position_updated_at).getTime() : 0;
+    if (!updatedAt) return base;
+
+    const elapsed = Math.max(0, (Date.now() - updatedAt) / 1000);
+    const duration = props.session.liveset?.duration_in_seconds ?? Infinity;
+    return Math.floor(Math.min(base + elapsed, duration));
+}
+
 async function handleJoin(mode: 'synced' | 'independent') {
     if (!props.session.liveset) return;
 
@@ -36,14 +46,27 @@ async function handleJoin(mode: 'synced' | 'independent') {
         const success = await joinRoom(props.session.channel_token, mode);
 
         if (success && props.session.liveset) {
-            // Start playing the liveset at the host's current position
+            // Fetch fresh state to get accurate position
+            let position = estimatedPosition();
+            try {
+                const stateRes = await fetch(`/api/live/rooms/${props.session.channel_token}/state`, {
+                    credentials: 'include',
+                });
+                if (stateRes.ok) {
+                    const state = await stateRes.json();
+                    const updatedAt = state.position_updated_at ? new Date(state.position_updated_at).getTime() : 0;
+                    const elapsed = updatedAt ? Math.max(0, (Date.now() - updatedAt) / 1000) : 0;
+                    position = Math.floor(state.position + elapsed);
+                }
+            } catch { /* fall back to estimated position */ }
+
             const result = findLivesetById(props.session.liveset.id);
             if (result) {
                 playLiveset(
                     result.edition,
                     result.liveset,
                     props.session.quality as any,
-                    props.session.position
+                    position
                 );
             }
         }

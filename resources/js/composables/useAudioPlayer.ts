@@ -137,10 +137,16 @@ export function useAudioPlayer() {
             return;
         }
 
-        // Check if not already loading this source
-        if (source.value && source.value === loadingSource.value) {
+        if (!source.value) {
+            console.log('[AudioPlayer] No source');
             return;
         }
+
+        // Guard against concurrent calls — set immediately before any async work
+        if (source.value === loadingSource.value) {
+            return;
+        }
+        loadingSource.value = source.value;
 
         // End current playback session FIRST
         await endPlayback();
@@ -149,15 +155,9 @@ export function useAudioPlayer() {
         waveInstance?.destroy();
         waveInstance = undefined;
 
-        if (!source.value) {
-            console.log('[AudioPlayer] No source');
-            return;
-        }
-
         playing.value = false;
         finished.value = false;
         loading.value = true;
-        loadingSource.value = source.value;
 
         // Handle remote playback (Chromecast)
         if (castMedia.casting.value && audioElement) {

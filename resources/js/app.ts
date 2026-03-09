@@ -8,6 +8,10 @@ import { ZiggyVue } from 'ziggy-js';
 import { initializeTheme } from './composables/useAppearance';
 import { configureEcho } from '@laravel/echo-vue';
 import FrontLayout from './layouts/FrontLayout.vue';
+import { getClientId } from './composables/useDeviceId';
+
+let cachedClientId: string | null = null;
+getClientId().then(id => { cachedClientId = id; }).catch(() => {});
 
 const echoConfig = {
     broadcaster: 'reverb' as const,
@@ -20,6 +24,13 @@ const echoConfig = {
     authEndpoint: '/api/broadcast/auth',
     authorizer: (channel: { name: string }) => ({
         authorize: (socketId: string, callback: (error: Error | null, data: { auth: string; channel_data?: string } | null) => void) => {
+            const body: Record<string, string> = {
+                socket_id: socketId,
+                channel_name: channel.name,
+            };
+            if (cachedClientId && channel.name.startsWith('presence-listen-along.')) {
+                body.client_id = cachedClientId;
+            }
             fetch('/api/broadcast/auth', {
                 method: 'POST',
                 headers: {
@@ -28,10 +39,7 @@ const echoConfig = {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
                 },
                 credentials: 'include',
-                body: JSON.stringify({
-                    socket_id: socketId,
-                    channel_name: channel.name,
-                }),
+                body: JSON.stringify(body),
             })
                 .then(response => {
                     if (!response.ok) {

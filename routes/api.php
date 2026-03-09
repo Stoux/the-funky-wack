@@ -93,6 +93,8 @@ Route::prefix('live')->group(function () {
         Route::post('/rooms/{channelToken}/join', [ListenAlongController::class, 'join']);
         Route::post('/rooms/{channelToken}/leave', [ListenAlongController::class, 'leave']);
         Route::post('/rooms/{channelToken}/detach', [ListenAlongController::class, 'detach']);
+        Route::post('/rooms/{channelToken}/pause-sync', [ListenAlongController::class, 'pauseSync']);
+        Route::post('/rooms/{channelToken}/resume-sync', [ListenAlongController::class, 'resumeSync']);
     });
 });
 

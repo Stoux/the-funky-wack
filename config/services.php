@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'reverb' => [
+        'webhook_secret' => env('REVERB_WEBHOOK_SECRET'),
+    ],
+
 ];

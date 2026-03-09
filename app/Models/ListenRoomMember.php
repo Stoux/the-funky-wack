@@ -17,6 +17,7 @@ class ListenRoomMember extends Model
         'play_history_id',
         'joined_at',
         'left_at',
+        'sync_paused_at',
     ];
 
     protected function casts(): array
@@ -24,6 +25,7 @@ class ListenRoomMember extends Model
         return [
             'joined_at' => 'datetime',
             'left_at' => 'datetime',
+            'sync_paused_at' => 'datetime',
         ];
     }
 

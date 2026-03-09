@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Listeners\PlaybackEventSubscriber;
 use App\Models\PlayHistory;
+use App\Services\ListenAlongService;
 use App\Services\PlayTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ class ReverbWebhookController extends Controller
 {
     public function __construct(
         protected PlayTrackingService $playTrackingService,
-        protected PlaybackEventSubscriber $playbackEventSubscriber
+        protected PlaybackEventSubscriber $playbackEventSubscriber,
+        protected ListenAlongService $listenAlongService
     ) {}
 
     /**
@@ -22,10 +24,14 @@ class ReverbWebhookController extends Controller
      */
     public function handle(Request $request): JsonResponse
     {
-        // Verify webhook secret
-        $secret = config('reverb.apps.apps.0.webhooks.0.headers.X-Reverb-Secret');
-        if ($secret && $request->header('X-Reverb-Secret') !== $secret) {
-            Log::warning('Reverb webhook: invalid secret');
+        // Verify webhook secret (fail closed — reject if not configured)
+        $secret = config('services.reverb.webhook_secret');
+        if (! $secret || $request->header('X-Reverb-Secret') !== $secret) {
+            if (! $secret) {
+                Log::error('Reverb webhook: REVERB_WEBHOOK_SECRET is not configured. All webhook requests will be rejected.');
+            } else {
+                Log::warning('Reverb webhook: invalid secret');
+            }
 
             return response()->json(['error' => 'Unauthorized'], 401);
         }
@@ -37,6 +43,23 @@ class ReverbWebhookController extends Controller
             'event' => $event,
             'channel' => $channel,
         ]);
+
+        // Handle listen-along channel disconnects
+        if (str_starts_with($channel, 'presence-listen-along.') && $event === 'member_removed') {
+            $channelToken = str_replace('presence-listen-along.', '', $channel);
+            $userInfo = $request->input('user_info', []);
+            $clientId = $userInfo['client_id'] ?? null;
+
+            if ($clientId) {
+                $this->listenAlongService->leaveRoom($channelToken, $clientId);
+                Log::debug('Listen-along: member removed via webhook', [
+                    'channel_token' => $channelToken,
+                    'client_id' => $clientId,
+                ]);
+            }
+
+            return response()->json(['status' => 'ok']);
+        }
 
         // Only handle playback channel events
         if (! str_starts_with($channel, 'presence-playback.')) {

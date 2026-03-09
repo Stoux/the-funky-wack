@@ -30,6 +30,7 @@ const isListeningAlong = ref(false);
 const currentRoomToken = ref<string | null>(null);
 const listenMode = ref<'synced' | 'independent'>('synced');
 const hostName = ref('');
+const syncPaused = ref(false);
 
 // As a host
 const isHost = ref(false);
@@ -54,6 +55,18 @@ let hostStopCallback: (() => void) | null = null;
 // Pre-fetch client ID on module load
 getClientId().then(id => { cachedClientId = id; }).catch(() => {});
 
+// Leave room on page unload (refresh/close) to prevent ghost listeners
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        if (currentRoomToken.value && cachedClientId) {
+            navigator.sendBeacon(
+                `/api/live/rooms/${currentRoomToken.value}/leave`,
+                new Blob([JSON.stringify({ client_id: cachedClientId })], { type: 'application/json' })
+            );
+        }
+    });
+}
+
 function getCsrfToken(): string {
     const cookie = document.cookie
         .split('; ')
@@ -75,9 +88,18 @@ export function useListenAlong() {
             });
             if (response.ok) {
                 const data = await response.json();
-                liveSessions.value = data.sessions || [];
+                const sessions = data.sessions || [];
+                console.log('[ListenAlong] fetchSessions response:', sessions.map(s => ({
+                    token: s.channel_token?.slice(0, 8),
+                    liveset: s.liveset?.title,
+                    position: s.position,
+                    position_updated_at: s.position_updated_at,
+                    age_seconds: s.position_updated_at ? Math.round((Date.now() - new Date(s.position_updated_at).getTime()) / 1000) : null,
+                    listeners: s.listeners_count,
+                })));
+                liveSessions.value = sessions;
                 totalListeners.value = liveSessions.value.reduce(
-                    (sum, s) => sum + s.listeners_count, 0
+                    (sum, s) => sum + s.listeners_count + 1, 0
                 );
             }
         } catch (error) {
@@ -232,8 +254,55 @@ export function useListenAlong() {
     async function detach(): Promise<void> {
         if (!currentRoomToken.value) return;
 
+        let newRoomToken: string | null = null;
         try {
-            await fetch(`/api/live/rooms/${currentRoomToken.value}/detach`, {
+            const response = await fetch(`/api/live/rooms/${currentRoomToken.value}/detach`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                    ...(cachedClientId ? { 'X-Client-ID': cachedClientId } : {}),
+                },
+                credentials: 'include',
+            });
+            if (response.ok) {
+                const data = await response.json();
+                newRoomToken = data.new_room_token ?? null;
+            }
+        } catch (error) {
+            console.error('[ListenAlong] Failed to detach:', error);
+        }
+
+        leaveRoomChannel();
+        listenMode.value = 'independent';
+        isListeningAlong.value = false;
+        currentRoomToken.value = null;
+
+        // If the backend created a new room for our continued playback, set up as host
+        if (newRoomToken) {
+            setupHost(newRoomToken);
+        }
+    }
+
+    function resetListenerState(): void {
+        isListeningAlong.value = false;
+        currentRoomToken.value = null;
+        listenMode.value = 'synced';
+        hostName.value = '';
+        syncPaused.value = false;
+    }
+
+    /**
+     * Pause sync — listener paused playback while synced.
+     * Host events will be ignored until resumed or detached.
+     */
+    async function pauseSyncState(): Promise<void> {
+        if (!currentRoomToken.value) return;
+        syncPaused.value = true;
+
+        try {
+            await fetch(`/api/live/rooms/${currentRoomToken.value}/pause-sync`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -244,20 +313,31 @@ export function useListenAlong() {
                 credentials: 'include',
             });
         } catch (error) {
-            console.error('[ListenAlong] Failed to detach:', error);
+            console.error('[ListenAlong] Failed to pause sync:', error);
         }
-
-        leaveRoomChannel();
-        listenMode.value = 'independent';
-        isListeningAlong.value = false;
-        currentRoomToken.value = null;
     }
 
-    function resetListenerState(): void {
-        isListeningAlong.value = false;
-        currentRoomToken.value = null;
-        listenMode.value = 'synced';
-        hostName.value = '';
+    /**
+     * Resume sync — listener chose to resync with host.
+     */
+    async function resumeSyncState(): Promise<void> {
+        if (!currentRoomToken.value) return;
+        syncPaused.value = false;
+
+        try {
+            await fetch(`/api/live/rooms/${currentRoomToken.value}/resume-sync`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                    ...(cachedClientId ? { 'X-Client-ID': cachedClientId } : {}),
+                },
+                credentials: 'include',
+            });
+        } catch (error) {
+            console.error('[ListenAlong] Failed to resume sync:', error);
+        }
     }
 
     // Host-side: set up when a room is created for this user
@@ -280,26 +360,27 @@ export function useListenAlong() {
     }
 
     // Event handlers — only fire if we're still actively listening along
+    // When syncPaused, ignore all host actions except stop
     function onHostSeek(position: number): void {
-        if (!isListeningAlong.value) return;
+        if (!isListeningAlong.value || syncPaused.value) return;
         console.log('[ListenAlong] Host seek to:', position);
         seekCallback?.(position);
     }
 
     function onHostPause(position: number): void {
-        if (!isListeningAlong.value) return;
+        if (!isListeningAlong.value || syncPaused.value) return;
         console.log('[ListenAlong] Host paused at:', position);
         pauseCallback?.();
     }
 
     function onHostResume(position: number): void {
-        if (!isListeningAlong.value) return;
+        if (!isListeningAlong.value || syncPaused.value) return;
         console.log('[ListenAlong] Host resumed at:', position);
         resumeCallback?.();
     }
 
     function onHostTrackChange(data: { liveset_id: number; position: number; quality: string }): void {
-        if (!isListeningAlong.value) return;
+        if (!isListeningAlong.value || syncPaused.value) return;
         console.log('[ListenAlong] Host changed track:', data);
         trackChangeCallback?.(data);
     }
@@ -336,6 +417,7 @@ export function useListenAlong() {
         currentRoomToken,
         listenMode,
         hostName,
+        syncPaused,
 
         // Host state
         isHost,
@@ -353,6 +435,8 @@ export function useListenAlong() {
         joinRoom,
         leaveRoom,
         detach,
+        pauseSyncState,
+        resumeSyncState,
         setupHost,
         teardownHost,
 
