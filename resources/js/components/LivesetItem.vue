@@ -87,6 +87,10 @@ function handleAddToQueue() {
                         <span class="text-muted-foreground text-xs">&bull;</span>
                         <span class="text-muted-foreground text-xs">BPM: {{ liveset.bpm }}</span>
                     </template>
+                    <template v-if="liveset.plays_count">
+                        <span class="text-muted-foreground text-xs">&bull;</span>
+                        <span class="text-muted-foreground text-xs inline-flex items-center gap-0.5"><Play class="h-3 w-3 fill-current" /> {{ liveset.plays_count }}</span>
+                    </template>
                 </div>
             </div>
         </div>
