@@ -6,13 +6,15 @@ use App\Events\PlaybackCountedAsPlay;
 use App\Events\PlaybackSessionExpired;
 use App\Events\PlaybackSessionStarted;
 use App\Models\PlayHistory;
+use App\Services\ListenAlongService;
 use App\Services\PlayTrackingService;
 use Illuminate\Support\Facades\Log;
 
 class PlaybackEventSubscriber
 {
     public function __construct(
-        protected PlayTrackingService $playTrackingService
+        protected PlayTrackingService $playTrackingService,
+        protected ListenAlongService $listenAlongService
     ) {}
 
     /**
@@ -47,6 +49,14 @@ class PlaybackEventSubscriber
 
         // Broadcast session started to all connected clients
         event(new PlaybackSessionStarted($playHistory, $sessionId));
+
+        // Listen Along: create room or update existing room's track
+        $existingRoom = $this->listenAlongService->findActiveRoomForSession($sessionId);
+        if ($existingRoom) {
+            $this->listenAlongService->updateHostPlayHistory($existingRoom, $playHistory);
+        } else {
+            $this->listenAlongService->createRoom($playHistory);
+        }
 
         Log::debug('Playback: session started', [
             'session_id' => $sessionId,
@@ -113,6 +123,16 @@ class PlaybackEventSubscriber
         // Record the seek - ends current segment and starts new one
         $this->playTrackingService->recordSeek($playHistory, $fromPosition, $toPosition);
 
+        // Listen Along: broadcast seek to synced listeners + update Live page
+        $room = $this->listenAlongService->findActiveRoomForSession($sessionId);
+        if ($room) {
+            $this->listenAlongService->broadcastHostAction($room, 'host.seek', [
+                'position' => $toPosition,
+            ]);
+
+            event(new \App\Events\LiveSessionsUpdated);
+        }
+
         Log::debug('Playback: seek detected', [
             'session_id' => $sessionId,
             'play_history_id' => $playHistoryId,
@@ -136,6 +156,14 @@ class PlaybackEventSubscriber
             $this->playTrackingService->endSegment($playHistory, $position);
         }
 
+        // Listen Along: broadcast pause to synced listeners
+        $room = $this->listenAlongService->findActiveRoomForSession($sessionId);
+        if ($room) {
+            $this->listenAlongService->broadcastHostAction($room, 'host.pause', [
+                'position' => $position,
+            ]);
+        }
+
         Log::debug('Playback: paused', [
             'session_id' => $sessionId,
             'play_history_id' => $playHistoryId,
@@ -156,6 +184,14 @@ class PlaybackEventSubscriber
         if ($playHistory) {
             // Start a new segment on resume
             $this->playTrackingService->startSegment($playHistory, $position);
+        }
+
+        // Listen Along: broadcast resume to synced listeners
+        $room = $this->listenAlongService->findActiveRoomForSession($sessionId);
+        if ($room) {
+            $this->listenAlongService->broadcastHostAction($room, 'host.resume', [
+                'position' => $position,
+            ]);
         }
 
         Log::debug('Playback: resumed', [
@@ -189,6 +225,12 @@ class PlaybackEventSubscriber
             $position,
             $durationListened
         );
+
+        // Listen Along: end the room when host stops
+        $room = $this->listenAlongService->findActiveRoomForSession($sessionId);
+        if ($room) {
+            $this->listenAlongService->endRoom($room);
+        }
 
         Log::debug('Playback: stopped', [
             'session_id' => $sessionId,

@@ -13,7 +13,8 @@ import {useTrackSearch} from "@/composables/useTrackSearch";
 import UserMenu from "@/components/UserMenu.vue";
 import {useFavorites} from "@/composables/useFavorites";
 import {Button} from "@/components/ui/button";
-import {ListMusic} from "lucide-vue-next";
+import {ListMusic, Radio} from "lucide-vue-next";
+import {useListenAlong} from "@/composables/useListenAlong";
 
 // Get editions from shared Inertia props
 const { editions, sortedEditions } = useEditions();
@@ -90,6 +91,12 @@ const possiblyAutoplayNextLiveset = () => {
     }
 }
 
+// Listen Along - fetch session count for nav indicator
+const { totalListeners, fetchSessions: fetchLiveSessions } = useListenAlong();
+onMounted(() => {
+    fetchLiveSessions();
+});
+
 // Pass the editions to the track search
 const trackSearch = useTrackSearch();
 watch(editions, (newEditions) => {
@@ -109,6 +116,19 @@ watch(editions, (newEditions) => {
             <div class="flex space-y-2 md:space-y-0 space-x-2 flex-col md:flex-row items-center">
                 <AutoplayButton v-model:autoplaying="autoplaying" />
                 <TrackSearch />
+                <Link :href="route('live')">
+                    <Button variant="outline" size="sm" class="relative">
+                        <Radio class="h-4 w-4 mr-2" />
+                        Live
+                        <span v-if="totalListeners > 0" class="ml-1 flex items-center space-x-1">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            <span class="text-xs">{{ totalListeners }}</span>
+                        </span>
+                    </Button>
+                </Link>
                 <Link :href="route('user.playlists')">
                     <Button variant="outline" size="sm">
                         <ListMusic class="h-4 w-4 mr-2" />

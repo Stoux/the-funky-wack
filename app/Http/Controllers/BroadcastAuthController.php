@@ -27,6 +27,11 @@ class BroadcastAuthController extends Controller
             return $this->authorizePlaybackChannel($request, $channelName);
         }
 
+        // For listen-along and live channels, allow guests
+        if (str_starts_with($channelName, 'presence-listen-along.') || $channelName === 'presence-live') {
+            return $this->authorizeGuestPresenceChannel($request, $channelName);
+        }
+
         // For other channels, require authentication
         if (! $request->user()) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -76,6 +81,31 @@ class BroadcastAuthController extends Controller
         ];
 
         // Generate auth signature
+        $signature = $this->generateSignature($socketId, $channelName, $channelData);
+
+        return response()->json([
+            'auth' => $this->getReverbKey().':'.$signature,
+            'channel_data' => json_encode($channelData),
+        ]);
+    }
+
+    /**
+     * Authorize access to guest-friendly presence channels (live, listen-along).
+     */
+    protected function authorizeGuestPresenceChannel(Request $request, string $channelName): JsonResponse
+    {
+        $user = $request->user();
+        $socketId = $request->input('socket_id');
+        $sessionId = $request->session()->getId();
+
+        $channelData = [
+            'user_id' => $user?->id ?? 'guest_'.substr($sessionId, 0, 8),
+            'user_info' => [
+                'user_id' => $user?->id,
+                'user_name' => $user?->name ?? 'Anonymous',
+            ],
+        ];
+
         $signature = $this->generateSignature($socketId, $channelName, $channelData);
 
         return response()->json([

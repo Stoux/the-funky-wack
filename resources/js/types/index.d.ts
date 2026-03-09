@@ -31,9 +31,12 @@ export interface User {
     avatar?: string;
     email_verified_at: string | null;
     is_admin: boolean;
+    listening_visibility?: ListeningVisibility;
     created_at: string;
     updated_at: string;
 }
+
+export type ListeningVisibility = 'everyone' | 'authenticated' | 'nobody';
 
 export type BreadcrumbItemType = BreadcrumbItem;
 

@@ -10,7 +10,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link } from '@inertiajs/vue3';
-import { User, Heart, History, ListMusic, Monitor, LogOut, LogIn, UserPlus, Shield } from 'lucide-vue-next';
+import { User, Heart, History, ListMusic, Monitor, Radio, LogOut, LogIn, UserPlus, Shield } from 'lucide-vue-next';
 
 const { user, isAuthenticated, logout } = useAuth();
 </script>
@@ -24,6 +24,13 @@ const { user, isAuthenticated, logout } = useAuth();
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" class="w-56">
+            <DropdownMenuItem as-child>
+                <Link :href="route('live')" class="flex items-center cursor-pointer">
+                    <Radio class="mr-2 h-4 w-4" />
+                    Live
+                </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <template v-if="isAuthenticated">
                 <DropdownMenuLabel class="font-normal">
                     <div class="flex flex-col space-y-1">

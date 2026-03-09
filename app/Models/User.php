@@ -18,6 +18,7 @@ class User extends Authenticatable
         'email',
         'password',
         'is_admin',
+        'listening_visibility',
     ];
 
     protected $hidden = [

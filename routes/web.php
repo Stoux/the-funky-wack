@@ -14,6 +14,7 @@ use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ListController::class, 'index'])->name('home');
+Route::get('/live', fn () => Inertia\Inertia::render('Live'))->name('live');
 
 // Versioned, cache-busting asset route for posters and images
 Route::get('/images/{version}/{path}', [PosterController::class, 'show'])

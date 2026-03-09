@@ -3,7 +3,8 @@ import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Copy, Check, Plus, UserCheck } from 'lucide-vue-next';
+import { ArrowLeft, Copy, Check, Plus, UserCheck, Eye } from 'lucide-vue-next';
+import type { ListeningVisibility } from '@/types';
 import UserMenu from '@/components/UserMenu.vue';
 import { useAuth } from '@/composables/useAuth';
 
@@ -23,6 +24,33 @@ const { user } = useAuth();
 const invites = ref<InviteCode[]>(props.invites);
 const copiedCode = ref<string | null>(null);
 const generating = ref(false);
+
+// Listening visibility
+const listeningVisibility = ref<ListeningVisibility>(
+    (user.value?.listening_visibility as ListeningVisibility) ?? 'everyone'
+);
+const savingVisibility = ref(false);
+
+async function updateVisibility(value: ListeningVisibility) {
+    listeningVisibility.value = value;
+    savingVisibility.value = true;
+    try {
+        await fetch('/api/settings/visibility', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': getCsrfToken(),
+            },
+            credentials: 'include',
+            body: JSON.stringify({ listening_visibility: value }),
+        });
+    } catch (error) {
+        console.error('Failed to update visibility:', error);
+    } finally {
+        savingVisibility.value = false;
+    }
+}
 
 async function generateInviteCode() {
     generating.value = true;
@@ -111,6 +139,45 @@ function getCsrfToken(): string {
                     <div>
                         <p class="text-sm text-muted-foreground">Email</p>
                         <p class="font-medium">{{ user?.email }}</p>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- Listening Visibility -->
+            <Card>
+                <CardHeader>
+                    <CardTitle class="flex items-center space-x-2">
+                        <Eye class="h-5 w-5" />
+                        <span>Listening Visibility</span>
+                    </CardTitle>
+                    <CardDescription>Control who can see your name on the Live page when you're listening</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div class="space-y-2">
+                        <label
+                            v-for="option in [
+                                { value: 'everyone', label: 'Everyone', description: 'Anyone can see your name' },
+                                { value: 'authenticated', label: 'Logged-in users only', description: 'Only registered users can see your name' },
+                                { value: 'nobody', label: 'Nobody', description: 'You appear as Anonymous' },
+                            ]"
+                            :key="option.value"
+                            class="flex items-start space-x-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+                            :class="{ 'border-primary bg-primary/5': listeningVisibility === option.value }"
+                        >
+                            <input
+                                type="radio"
+                                name="listening_visibility"
+                                :value="option.value"
+                                :checked="listeningVisibility === option.value"
+                                :disabled="savingVisibility"
+                                class="mt-1"
+                                @change="updateVisibility(option.value as ListeningVisibility)"
+                            />
+                            <div>
+                                <p class="font-medium text-sm">{{ option.label }}</p>
+                                <p class="text-xs text-muted-foreground">{{ option.description }}</p>
+                            </div>
+                        </label>
                     </div>
                 </CardContent>
             </Card>

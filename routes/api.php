@@ -4,10 +4,12 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\InviteController;
+use App\Http\Controllers\Api\ListenAlongController;
 use App\Http\Controllers\Api\PlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\QueueHealthController;
 use App\Http\Controllers\Api\ReverbWebhookController;
+use App\Http\Controllers\Api\UserSettingsController;
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\BroadcastAuthController;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +80,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/playlists/{shareCode}/items', [PlaylistController::class, 'reorderItems']);
     Route::delete('/playlists/{shareCode}/items/{liveset}', [PlaylistController::class, 'removeItem']);
     Route::post('/playlists/{shareCode}/regenerate-code', [PlaylistController::class, 'regenerateCode']);
+});
+
+// Listen Along - public endpoints
+Route::prefix('live')->group(function () {
+    Route::middleware('throttle:30,1')->group(function () {
+        Route::get('/sessions', [ListenAlongController::class, 'sessions']);
+        Route::get('/rooms/{channelToken}/state', [ListenAlongController::class, 'state']);
+    });
+
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('/rooms/{channelToken}/join', [ListenAlongController::class, 'join']);
+        Route::post('/rooms/{channelToken}/leave', [ListenAlongController::class, 'leave']);
+        Route::post('/rooms/{channelToken}/detach', [ListenAlongController::class, 'detach']);
+    });
+});
+
+// Protected routes (require authentication) - user settings
+Route::middleware('auth:sanctum')->group(function () {
+    Route::put('/settings/visibility', [UserSettingsController::class, 'updateVisibility']);
 });
 
 // Reverb webhook for presence channel events (disconnect detection)

@@ -27,3 +27,5 @@ Broadcast::channel('liveset.{livesetId}', function (?User $user, int $livesetId)
         'session_id' => session()->getId(),
     ];
 });
+
+// Listen-along channels are authorized via BroadcastAuthController (guest-friendly, no session required)
