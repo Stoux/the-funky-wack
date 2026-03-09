@@ -57,7 +57,6 @@ class TFW4 extends BaseEditionSeeder
             'soundcloud_url' => 'https://soundcloud.com/the-funky-wack-pt2/uk-lionsworth-innit-funky-wack-3-2024-04-12',
         ]);
 
-
         \App\Models\Liveset::create([
             'edition_id' => $this->edition->id,
             'title' => 'BRNCL: Overmono & Friends',

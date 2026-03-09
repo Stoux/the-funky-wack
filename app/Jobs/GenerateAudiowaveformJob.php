@@ -25,8 +25,7 @@ class GenerateAudiowaveformJob implements ShouldQueue
 
     public function handle(
         FileGenerationStatusService $statusService,
-    ): void
-    {
+    ): void {
         try {
             $this->convert();
         } catch (\Throwable $e) {
@@ -41,7 +40,7 @@ class GenerateAudiowaveformJob implements ShouldQueue
 
             throw $e;
         } finally {
-            $statusService->setGeneratingWaveform($this->liveset->id, false);;
+            $statusService->setGeneratingWaveform($this->liveset->id, false);
         }
     }
 
@@ -50,15 +49,15 @@ class GenerateAudiowaveformJob implements ShouldQueue
         Log::info('Generate audiowaveform', [
             'original' => $this->original->path,
             'target' => $this->liveset->audio_waveform_path,
-        ]);;
+        ]);
 
         $disk = \Storage::disk('public');
 
-        if (!$disk->exists($this->original->path)) {
-            throw new \Exception('Original file does not exist? ' . $this->original->path);
+        if (! $disk->exists($this->original->path)) {
+            throw new \Exception('Original file does not exist? '.$this->original->path);
         }
         if ($disk->exists($this->liveset->audio_waveform_path)) {
-            throw new \Exception('Target file already exists? ' . $this->liveset->audio_waveform_path);
+            throw new \Exception('Target file already exists? '.$this->liveset->audio_waveform_path);
         }
 
         $originalPath = $disk->path($this->original->path);
@@ -68,7 +67,7 @@ class GenerateAudiowaveformJob implements ShouldQueue
         Log::info('Make sure audiowaveform exists', [
             'path' => $audiowaveform,
         ]);
-        if (!\Process::run([$audiowaveform, '-v'])->successful()) {
+        if (! \Process::run([$audiowaveform, '-v'])->successful()) {
             throw new \Exception('audiowaveform not found / could not be run?');
         }
 
@@ -80,13 +79,11 @@ class GenerateAudiowaveformJob implements ShouldQueue
             }
         });
 
-        if (!$convertProcess->successful()) {
-            throw new \RuntimeException('Failed to generate audiowaveform: ' . $convertProcess->exitCode() . ': ' . $this->liveset->audio_waveform_path);
+        if (! $convertProcess->successful()) {
+            throw new \RuntimeException('Failed to generate audiowaveform: '.$convertProcess->exitCode().': '.$this->liveset->audio_waveform_path);
         }
 
         Log::info('Generated audiowaveform!');
 
-
     }
-
 }

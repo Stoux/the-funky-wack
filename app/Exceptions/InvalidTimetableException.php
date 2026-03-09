@@ -2,6 +2,4 @@
 
 namespace App\Exceptions;
 
-class InvalidTimetableException extends \Exception
-{
-}
+class InvalidTimetableException extends \Exception {}

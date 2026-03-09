@@ -29,7 +29,6 @@ class TFW6 extends BaseEditionSeeder
             'started_at' => '2025-01-17T18:34:00',
         ]);
 
-
         \App\Models\Liveset::create([
             'edition_id' => $this->edition->id,
             'title' => 'DJarno\'s 90s Throwback',

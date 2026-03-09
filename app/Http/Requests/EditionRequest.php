@@ -27,7 +27,7 @@ abstract class EditionRequest extends FormRequest
         $editionRule = $edition instanceof Edition ? sprintf(',%d', $edition->id) : '';
 
         return [
-            'number' => 'required|integer|unique:editions,number' . $editionRule,
+            'number' => 'required|integer|unique:editions,number'.$editionRule,
             'tag_line' => 'required|string|max:255',
             'date' => 'required|date',
             'notes' => 'nullable|string',

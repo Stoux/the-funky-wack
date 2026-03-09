@@ -12,7 +12,7 @@ class TFW2 extends BaseEditionSeeder
             'number' => '2',
             'tag_line' => 'The Funky Cat Pre-Party',
             'date' => '2024-03-15',
-            'notes' => 'Live recordings of the very low-effort "Funky Wack 2", pre-party for The Funky Cat 18.'
+            'notes' => 'Live recordings of the very low-effort "Funky Wack 2", pre-party for The Funky Cat 18.',
         ]);
     }
 
@@ -57,7 +57,6 @@ class TFW2 extends BaseEditionSeeder
             'lineup_order' => 4,
             'soundcloud_url' => 'https://soundcloud.com/the-funky-wack/lionsworth-neo-trance-funky',
         ]);
-
 
         \App\Models\Liveset::create([
             'edition_id' => $this->edition->id,

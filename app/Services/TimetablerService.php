@@ -11,17 +11,14 @@ class TimetablerService
 {
     private array $timetables = [];
 
-    public function __construct()
-    {
-
-    }
+    public function __construct() {}
 
     /**
      * Resolve the timetable for the given edition (requires the edition to have timetabler mode on).
      *
-     * @param \App\Models\Edition $edition
      *
      * @return \Illuminate\Support\Collection<int, \App\DTO\Timetabler\LivesetTimeslot> Liveset ID => LivesetTimeslot
+     *
      * @throws \App\Exceptions\InvalidTimetableException
      */
     public function getTimetable(Edition $edition): Collection
@@ -75,5 +72,4 @@ class TimetablerService
         $this->timetables[$edition->id] = $exception;
         throw $exception;
     }
-
 }

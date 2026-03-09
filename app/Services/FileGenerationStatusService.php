@@ -8,9 +8,7 @@ class FileGenerationStatusService
 {
     public function __construct(
         private readonly CacheInterface $cache,
-    ) {
-
-    }
+    ) {}
 
     public function isConvertingFile(int $fileId): bool
     {

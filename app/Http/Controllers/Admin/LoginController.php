@@ -21,7 +21,7 @@ class LoginController extends Controller
             'password' => [
                 'string',
                 'required',
-            ]
+            ],
         ]);
 
         if ($v['password'] !== config('app.tfw.super_secure_password')) {

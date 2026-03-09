@@ -11,12 +11,10 @@ readonly class LivesetTimeslot
         public Liveset $liveset,
         public CarbonInterface $startTime,
         public CarbonInterface $endTime,
-    ) {
-    }
+    ) {}
 
     public function timeslot(): string
     {
         return sprintf('%s - %s', $this->startTime->format('H:i'), $this->endTime->format('H:i'));
     }
-
 }

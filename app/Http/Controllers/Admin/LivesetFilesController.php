@@ -23,7 +23,7 @@ class LivesetFilesController extends Controller
 
         return Inertia::render('Admin/LivesetFiles', [
             'liveset' => $liveset->load('edition'),
-            'files' => $liveset->files->map(fn(LivesetFile $file) => [
+            'files' => $liveset->files->map(fn (LivesetFile $file) => [
                 ...$file->toArray(),
                 'exists' => $disk->exists($file->path),
                 'converting' => $statusService->isConvertingFile($file->id),
@@ -36,14 +36,14 @@ class LivesetFilesController extends Controller
 
     protected function listAudioFiles(Filesystem $disk, string $path)
     {
-        $path = rtrim( $path, '/' ) . '/';
+        $path = rtrim($path, '/').'/';
 
         $result = [];
         $files = $disk->files($path, true);
-        foreach( $files as $file ) {
-            $file = substr( $file, strlen( $path ) );
+        foreach ($files as $file) {
+            $file = substr($file, strlen($path));
 
-            if (!preg_match('/\.(mp3|m4a|opus|mp4|webm|ogg|wav|flac)$/i', $file)) {
+            if (! preg_match('/\.(mp3|m4a|opus|mp4|webm|ogg|wav|flac)$/i', $file)) {
                 continue;
             }
 
@@ -57,11 +57,11 @@ class LivesetFilesController extends Controller
     {
         $map = [];
         $files = $this->listAudioFiles($disk, $path);
-        foreach( $files as $file ) {
+        foreach ($files as $file) {
             $filePath = explode('/', $file);
             $currentMap = &$map;
-            foreach( $filePath as $index => $pathSection ) {
-                if( $index === count( $filePath ) - 1 ) {
+            foreach ($filePath as $index => $pathSection) {
+                if ($index === count($filePath) - 1) {
                     $currentMap[$pathSection] = $file;
                 } else {
                     $currentMap[$pathSection] ??= [];
@@ -84,7 +84,7 @@ class LivesetFilesController extends Controller
             ],
             'quality' => [
                 'required',
-                'in:' . implode(',', array_keys( LivesetQuality::options() ) ),
+                'in:'.implode(',', array_keys(LivesetQuality::options())),
             ],
             'original' => 'boolean',
         ]);
@@ -92,19 +92,19 @@ class LivesetFilesController extends Controller
         $audioFiles = $this->listAudioFiles(Storage::disk('local'), 'audio');
         if (! in_array($v['path'], $audioFiles)) {
             throw ValidationException::withMessages([
-                'path' => ["Unknown file to import"],
+                'path' => ['Unknown file to import'],
             ])->status(429);
         }
 
         // Create the public dir
         $privateDir = Storage::disk('local');
         $publicDir = Storage::disk('public');
-        if (!$publicDir->exists('livesets/' . $liveset->id)) {
-            $publicDir->makeDirectory('livesets/' . $liveset->id);
+        if (! $publicDir->exists('livesets/'.$liveset->id)) {
+            $publicDir->makeDirectory('livesets/'.$liveset->id);
         }
 
         // Insert the file into the DB
-        $toPath = 'livesets/' . $liveset->id . '/' . $v['name'];
+        $toPath = 'livesets/'.$liveset->id.'/'.$v['name'];
         $livesetFile = LivesetFile::create([
             ...$v,
             'path' => $toPath,
@@ -112,16 +112,16 @@ class LivesetFilesController extends Controller
         ]);
 
         // Copy from private dir to public dir with our name
-        $fromStream = $privateDir->readStream('audio/' . $v['path']);
+        $fromStream = $privateDir->readStream('audio/'.$v['path']);
         $written = $publicDir->put($toPath, $fromStream);
-        if (!$written) {
+        if (! $written) {
             $livesetFile->delete();
             throw ValidationException::withMessages([
-                'path' => ["Could not write file"],
+                'path' => ['Could not write file'],
             ])->status(429);
         }
 
-        return redirect()->route('admin.livesets.files', [ $liveset ])
+        return redirect()->route('admin.livesets.files', [$liveset])
             ->with('success', 'Liveset file imported.');
     }
 
@@ -130,14 +130,14 @@ class LivesetFilesController extends Controller
         $v = $request->validate([
             'quality' => [
                 'required',
-                'in:' . implode(',', array_keys( LivesetQuality::options() ) ),
+                'in:'.implode(',', array_keys(LivesetQuality::options())),
             ],
             'original' => 'boolean',
         ]);
 
         $file->update($v);
 
-        return redirect()->route('admin.livesets.files', [ $liveset ])
+        return redirect()->route('admin.livesets.files', [$liveset])
             ->with('success', 'Liveset file updated.');
     }
 
@@ -146,7 +146,7 @@ class LivesetFilesController extends Controller
         Storage::disk('public')->delete($file->path);
         $file->delete();
 
-        return redirect()->route('admin.livesets.files', [ $liveset ])
+        return redirect()->route('admin.livesets.files', [$liveset])
             ->with('success', 'Liveset file deleted.');
     }
 
@@ -155,7 +155,7 @@ class LivesetFilesController extends Controller
         $validated = $request->validate([
             'quality' => [
                 'required',
-                'in:' . LivesetQuality::LQ->value . ',' . LivesetQuality::HQ->value,
+                'in:'.LivesetQuality::LQ->value.','.LivesetQuality::HQ->value,
             ],
         ]);
 
@@ -163,20 +163,20 @@ class LivesetFilesController extends Controller
         $quality = LivesetQuality::from($validated['quality']);
         if ($file->quality !== LivesetQuality::LOSSLESS) {
             throw ValidationException::withMessages([
-                'original' => ["File must be original & lossless"],
+                'original' => ['File must be original & lossless'],
             ]);
         }
 
         // Build the new file path
         $newFilePath = preg_replace(
             '/\.[a-z0-9]{2,4}$/i',
-            '.' . $quality->value . '.m4a',
+            '.'.$quality->value.'.m4a',
             $file->path,
         );
 
         // Make sure that file doesn't exist yet
         Storage::disk('public')->exists($newFilePath) && throw ValidationException::withMessages([
-            'path' => [ 'Target file ' . $newFilePath . ' already exists!?' ],
+            'path' => ['Target file '.$newFilePath.' already exists!?'],
         ]);
 
         // Insert the new entry
@@ -191,7 +191,7 @@ class LivesetFilesController extends Controller
         $statusService->setConvertingFile($newFile->id, true);
         ConvertAudioJob::dispatch($file, $newFile);
 
-        return redirect()->route('admin.livesets.files', [ $liveset ])
+        return redirect()->route('admin.livesets.files', [$liveset])
             ->with('success', 'Liveset file conversion started.');
     }
 
@@ -199,12 +199,11 @@ class LivesetFilesController extends Controller
     {
         // Make sure it doesn't already have one
 
-
         // Find the original file
         $file = $liveset->files->firstWhere('original', true);
-        if (!$file) {
+        if (! $file) {
             throw ValidationException::withMessages([
-                'path' => ["No original file found"],
+                'path' => ['No original file found'],
             ])->status(429);
         }
 
@@ -217,9 +216,8 @@ class LivesetFilesController extends Controller
 
         // Make sure that file doesn't exist yet
         Storage::disk('public')->exists($newFilePath) && throw ValidationException::withMessages([
-            'path' => [ 'Target file ' . $newFilePath . ' already exists!?' ],
+            'path' => ['Target file '.$newFilePath.' already exists!?'],
         ]);
-
 
         // Start conversion job
         $liveset->update([
@@ -228,8 +226,7 @@ class LivesetFilesController extends Controller
         $statusService->setGeneratingWaveform($liveset->id, true);
         GenerateAudiowaveformJob::dispatch($liveset, $file);
 
-
-        return redirect()->route('admin.livesets.files', [ $liveset ])
+        return redirect()->route('admin.livesets.files', [$liveset])
             ->with('success', 'Liveset audio waveform generation started.');
     }
 
@@ -242,9 +239,7 @@ class LivesetFilesController extends Controller
             'audio_waveform_path' => null,
         ]);
 
-        return redirect()->route('admin.livesets.files', [ $liveset ])
+        return redirect()->route('admin.livesets.files', [$liveset])
             ->with('success', 'Liveset audio waveform deleted.');
     }
-
-
 }

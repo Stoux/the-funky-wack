@@ -26,9 +26,9 @@ class RegenerateAudioVariantsCommand extends Command
             ->where('quality', LivesetQuality::LOSSLESS)
             ->with('liveset.files')
             ->get()
-            ->filter(fn(LivesetFile $file) => $file->existsOnDisk());
+            ->filter(fn (LivesetFile $file) => $file->existsOnDisk());
 
-        $this->info('Found ' . $losslessOriginals->count() . ' lossless originals on disk.');
+        $this->info('Found '.$losslessOriginals->count().' lossless originals on disk.');
 
         $livesetIdsWithLossless = $losslessOriginals->pluck('liveset_id');
 
@@ -40,28 +40,29 @@ class RegenerateAudioVariantsCommand extends Command
             ->get();
 
         $this->newLine();
-        $this->info('Found ' . $filesToDelete->count() . ' non-original LQ/HQ files to delete (with lossless backup).');
+        $this->info('Found '.$filesToDelete->count().' non-original LQ/HQ files to delete (with lossless backup).');
 
         foreach ($filesToDelete as $file) {
             $this->line("  - [{$file->liveset->id}] {$file->path}");
         }
 
         $this->newLine();
-        $this->info('Will queue ' . ($losslessOriginals->count() * 2) . ' conversion jobs for ' . $losslessOriginals->count() . ' livesets.');
+        $this->info('Will queue '.($losslessOriginals->count() * 2).' conversion jobs for '.$losslessOriginals->count().' livesets.');
 
-        if (!$this->confirm($dryRun ? 'Show what would be generated?' : 'Proceed with deleting and regenerating?')) {
+        if (! $this->confirm($dryRun ? 'Show what would be generated?' : 'Proceed with deleting and regenerating?')) {
             $this->warn('Aborted.');
+
             return Command::SUCCESS;
         }
 
         // Delete old files
-        if (!$dryRun && $filesToDelete->count() > 0) {
+        if (! $dryRun && $filesToDelete->count() > 0) {
             foreach ($filesToDelete as $file) {
                 $this->line("  Deleting {$file->path}");
                 $disk->delete($file->path);
                 $file->delete();
             }
-            $this->info('Deleted ' . $filesToDelete->count() . ' files.');
+            $this->info('Deleted '.$filesToDelete->count().' files.');
         }
 
         // Queue new jobs
@@ -74,16 +75,17 @@ class RegenerateAudioVariantsCommand extends Command
                 // Build the new file path
                 $newFilePath = preg_replace(
                     '/\.[a-z0-9]{2,4}$/i',
-                    '.' . $quality->value . '.m4a',
+                    '.'.$quality->value.'.m4a',
                     $original->path,
                 );
 
                 $this->line("  - [{$liveset->id}] {$newFilePath}");
 
-                if (!$dryRun) {
+                if (! $dryRun) {
                     // Skip if file already exists
                     if ($disk->exists($newFilePath)) {
-                        $this->warn("    ^ Skipped, file already exists");
+                        $this->warn('    ^ Skipped, file already exists');
+
                         continue;
                     }
 

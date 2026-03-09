@@ -8,7 +8,6 @@ use App\Http\Requests\StoreLivesetRequest;
 use App\Http\Requests\UpdateLivesetRequest;
 use App\Models\Edition;
 use App\Models\Liveset;
-use App\Models\LivesetTrack;
 use App\Services\TimetablerService;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -47,10 +46,6 @@ class LivesetController extends Controller
                 ];
             });
 
-
-
-
-
         return Inertia::render('Admin/Livesets', [
             'livesets' => $livesets,
             'invalidTimetables' => $invalidTimetables->values(),
@@ -80,7 +75,7 @@ class LivesetController extends Controller
             $this->possiblyReorderLivesetsInTimetable($liveset);
 
             // Add tracks
-            if (!empty($validated['tracks_text'])) {
+            if (! empty($validated['tracks_text'])) {
                 $tracks = $request->validateAndParseTracks($validated['tracks_text']);
 
                 foreach ($tracks as $track) {
@@ -138,7 +133,7 @@ class LivesetController extends Controller
 
             // Just swap all tracks :)
             $liveset->tracks()->delete();
-            if (!empty($validated['tracks_text'])) {
+            if (! empty($validated['tracks_text'])) {
                 $tracks = $request->validateAndParseTracks($validated['tracks_text']);
 
                 foreach ($tracks as $track) {
@@ -178,7 +173,7 @@ class LivesetController extends Controller
     protected function possiblyReorderLivesetsInTimetable(Liveset $liveset): void
     {
         // Bail if not in timetabler mode or if the liveset doesn't have an order
-        if (!$liveset->edition->timetabler_mode) {
+        if (! $liveset->edition->timetabler_mode) {
             return;
         }
 

@@ -29,7 +29,6 @@ class TFW7 extends BaseEditionSeeder
             'started_at' => '2025-03-06T18:51:00',
         ]);
 
-
         \App\Models\Liveset::create([
             'edition_id' => $this->edition->id,
             'title' => 'Lionsworth\'s Funky Classics',

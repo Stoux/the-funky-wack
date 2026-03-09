@@ -12,7 +12,7 @@ class TFW3 extends BaseEditionSeeder
             'number' => '3',
             'tag_line' => 'De R\'Dam Rave Pre-Party',
             'date' => '2024-04-12',
-            'notes' => 'Live recordings of the very low-effort "Funky Wack 3".'
+            'notes' => 'Live recordings of the very low-effort "Funky Wack 3".',
         ]);
     }
 
@@ -62,7 +62,6 @@ class TFW3 extends BaseEditionSeeder
             'started_at' => '2024-04-12T20:58:07',
             'soundcloud_url' => 'https://soundcloud.com/the-funky-wack-pt2/uk-lionsworth-innit-funky-wack-3-2024-04-12',
         ]);
-
 
         \App\Models\Liveset::create([
             'edition_id' => $this->edition->id,

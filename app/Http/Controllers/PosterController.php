@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class PosterController extends Controller
@@ -12,7 +11,7 @@ class PosterController extends Controller
     public function show(string $version, string $path, Request $request): Response
     {
         // Basic sanity for version; not used for lookup
-        if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $version)) {
+        if (! preg_match('/^[A-Za-z0-9_-]{1,64}$/', $version)) {
             abort(404);
         }
 
@@ -25,12 +24,12 @@ class PosterController extends Controller
         }
 
         // Restrict to expected public disk prefixes
-        if (!str_starts_with($path, 'posters/') && !str_starts_with($path, 'editions/') && !str_starts_with($path, 'images/')) {
+        if (! str_starts_with($path, 'posters/') && ! str_starts_with($path, 'editions/') && ! str_starts_with($path, 'images/')) {
             abort(404);
         }
 
         $disk = Storage::disk('public');
-        if (!$disk->exists($path)) {
+        if (! $disk->exists($path)) {
             abort(404);
         }
 

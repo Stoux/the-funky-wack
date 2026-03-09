@@ -29,7 +29,6 @@ class TFW5 extends BaseEditionSeeder
             'started_at' => '2024-11-07T18:31:00+00:00',
         ]);
 
-
         // https://soundcloud.com/thefunkywack4/brncls-russian-dark-garage-funky-wack-5-2024-11-07?in=the-funky-wack/sets/funky-wack-5-2024-11-07
         \App\Models\Liveset::create([
             'edition_id' => $this->edition->id,

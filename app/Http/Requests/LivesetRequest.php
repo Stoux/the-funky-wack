@@ -41,8 +41,9 @@ abstract class LivesetRequest extends FormRequest
     /**
      * Validate and parse tracks from text format
      *
-     * @param string|null $tracksText
+     * @param  string|null  $tracksText
      * @return array
+     *
      * @throws \Illuminate\Validation\ValidationException
      */
     public function validateAndParseTracks($tracksText)
@@ -73,23 +74,23 @@ abstract class LivesetRequest extends FormRequest
             }
 
             // Validate format: [hh]:[mm]:[ss] | {title/name}
-            if (!preg_match('/^(\d{1,2}):(\d{2}):(\d{2})\s*\|\s*(.+)$/', $line, $matches)) {
+            if (! preg_match('/^(\d{1,2}):(\d{2}):(\d{2})\s*\|\s*(.+)$/', $line, $matches)) {
                 $lineNumber++; // Make it 1-based for user-friendly error message
                 throw ValidationException::withMessages([
-                    'tracks_text' => ["Line {$lineNumber}: Invalid track format. Expected format: [hh]:[mm]:[ss] | {title/name}"]
+                    'tracks_text' => ["Line {$lineNumber}: Invalid track format. Expected format: [hh]:[mm]:[ss] | {title/name}"],
                 ])->status(429);
             }
 
-            $hours = (int)$matches[1];
-            $minutes = (int)$matches[2];
-            $seconds = (int)$matches[3];
+            $hours = (int) $matches[1];
+            $minutes = (int) $matches[2];
+            $seconds = (int) $matches[3];
             $title = trim($matches[4]);
 
             // Validate time components
             if ($minutes >= 60 || $seconds >= 60) {
                 $lineNumber++; // Make it 1-based for user-friendly error message
                 throw ValidationException::withMessages([
-                    'tracks_text' => ["Line {$lineNumber}: Invalid time format. Minutes and seconds must be less than 60."]
+                    'tracks_text' => ["Line {$lineNumber}: Invalid time format. Minutes and seconds must be less than 60."],
                 ])->status(429);
             }
 
