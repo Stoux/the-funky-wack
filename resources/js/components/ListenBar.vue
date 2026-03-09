@@ -9,6 +9,7 @@ import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import LivesetDescription from "@/components/LivesetDescription.vue";
 import CastButton from "@/components/CastButton.vue";
 import ShareLivesetButton from "@/components/ShareLivesetButton.vue";
+import QueuePanel from "@/components/QueuePanel.vue";
 import {useAudioPlayer} from "@/composables/useAudioPlayer";
 
 const {
@@ -89,6 +90,8 @@ onBeforeUnmount(() => {
 
             <div class="flex items-center space-x-1">
                 <CastButton />
+
+                <QueuePanel />
 
                 <LivesetTrackList :liveset="currentLiveset!" :current-time="currentTime" button-type="ghost" v-if="currentLiveset?.tracks?.length" />
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import {formatDuration} from "@/lib/utils";
-import {Pause, Play, MoreVertical, ListMusic, FileText, Share2, Heart, ListPlus} from "lucide-vue-next";
+import {Pause, Play, MoreVertical, ListMusic, FileText, Share2, ListPlus, ListEnd, CheckCircle} from "lucide-vue-next";
 import {Button, type ButtonVariants} from "@/components/ui/button";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import {Separator} from "@/components/ui/separator";
@@ -19,9 +19,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {useFavorites} from "@/composables/useFavorites";
-import {useAuth} from "@/composables/useAuth";
-import {router} from "@inertiajs/vue3";
+import {useQueue} from "@/composables/useQueue";
 
 const emit = defineEmits<{
     (e: 'play', quality?: LivesetQuality): void,
@@ -47,17 +45,19 @@ const descriptionRef = ref<InstanceType<typeof LivesetDescription> | null>(null)
 const shareRef = ref<InstanceType<typeof ShareLivesetButton> | null>(null);
 const addToPlaylistRef = ref<InstanceType<typeof AddToPlaylistButton> | null>(null);
 
-// Favorites for mobile menu
-const { isAuthenticated } = useAuth();
-const { isFavorited, toggleFavorite } = useFavorites();
-const favorited = computed(() => isFavorited(props.liveset.id));
+// Queue
+const { addToQueue, queueItems } = useQueue();
+const justAddedToQueue = ref(false);
+const isInQueue = computed(() => queueItems.value.some(item => item.livesetId === props.liveset.id));
 
-async function handleMobileFavorite() {
-    if (!isAuthenticated.value) {
-        router.visit(route('auth.login'));
-        return;
+function handleAddToQueue() {
+    const added = addToQueue(props.liveset.id, { type: 'edition', editionId: props.edition.id });
+    if (added) {
+        justAddedToQueue.value = true;
+        setTimeout(() => {
+            justAddedToQueue.value = false;
+        }, 1500);
     }
-    await toggleFavorite(props.liveset.id);
 }
 
 </script>
@@ -91,35 +91,34 @@ async function handleMobileFavorite() {
             </div>
         </div>
 
-        <!-- Desktop buttons - visible on md and up -->
-        <div class="hidden md:flex items-center space-x-1 mr-4 text-muted-foreground">
-            <Button :variant="iconButtonType" class="h-8 w-auto p-2 rounded-full"
-                    v-if="liveset.files?.lq"
-                    @click="play('lq')">
-                LQ
-            </Button>
-            <Button :variant="iconButtonType" class="h-8 w-auto p-2 rounded-full"
-                    v-if="liveset.files?.hq"
-                    @click="play('hq')">
-                HQ
-            </Button>
-            <Button :variant="iconButtonType" class="h-8 w-auto p-2 rounded-full hidden lg:flex"
-                    v-if="liveset.files?.lossless"
-                    @click="play('lossless')">
-                WAV
-            </Button>
+        <!-- Action buttons -->
+        <div class="flex items-center space-x-1 mr-2 text-muted-foreground">
+            <!-- Quality buttons - desktop only -->
+            <div class="hidden md:flex items-center space-x-1">
+                <Button :variant="iconButtonType" class="h-8 w-auto p-2 rounded-full"
+                        v-if="liveset.files?.lq"
+                        @click="play('lq')">
+                    LQ
+                </Button>
+                <Button :variant="iconButtonType" class="h-8 w-auto p-2 rounded-full"
+                        v-if="liveset.files?.hq"
+                        @click="play('hq')">
+                    HQ
+                </Button>
+                <Button :variant="iconButtonType" class="h-8 w-auto p-2 rounded-full hidden lg:flex"
+                        v-if="liveset.files?.lossless"
+                        @click="play('lossless')">
+                    WAV
+                </Button>
+                <Separator orientation="vertical" class="mx-1" />
+            </div>
 
-            <Separator orientation="vertical"/>
-
+            <!-- Tracklist, Description & Favorite - always visible -->
             <LivesetTrackList ref="trackListRef" :liveset="liveset" :button-type="iconButtonType" />
             <LivesetDescription ref="descriptionRef" :edition="edition" :liveset="liveset" :button-type="iconButtonType" />
-            <ShareLivesetButton ref="shareRef" :edition="edition" :liveset="liveset" :button-type="iconButtonType" />
             <FavoriteButton :liveset-id="liveset.id" :button-type="iconButtonType" />
-            <AddToPlaylistButton ref="addToPlaylistRef" :liveset-id="liveset.id" :button-type="iconButtonType" />
-        </div>
 
-        <!-- Mobile menu - visible below md -->
-        <div class="md:hidden flex items-center space-x-2">
+            <!-- Overflow menu - always visible -->
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <Button variant="ghost" size="icon" class="h-8 w-8">
@@ -127,53 +126,62 @@ async function handleMobileFavorite() {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" class="w-48">
-                    <DropdownMenuLabel>Quality</DropdownMenuLabel>
-                    <DropdownMenuItem v-if="liveset.files?.lq" @click="play('lq')">
-                        Play LQ
-                    </DropdownMenuItem>
-                    <DropdownMenuItem v-if="liveset.files?.hq" @click="play('hq')">
-                        Play HQ
-                    </DropdownMenuItem>
-                    <DropdownMenuItem v-if="liveset.files?.lossless" @click="play('lossless')">
-                        Play Lossless
-                    </DropdownMenuItem>
-                    <DropdownMenuItem v-if="!liveset.files" disabled class="text-muted-foreground">
-                        Not available
-                    </DropdownMenuItem>
+                    <!-- Quality options - mobile only -->
+                    <div class="md:hidden">
+                        <DropdownMenuLabel>Quality</DropdownMenuLabel>
+                        <DropdownMenuItem v-if="liveset.files?.lq" @click="play('lq')">
+                            Play LQ
+                        </DropdownMenuItem>
+                        <DropdownMenuItem v-if="liveset.files?.hq" @click="play('hq')">
+                            Play HQ
+                        </DropdownMenuItem>
+                        <DropdownMenuItem v-if="liveset.files?.lossless" @click="play('lossless')">
+                            Play Lossless
+                        </DropdownMenuItem>
+                        <DropdownMenuItem v-if="!liveset.files" disabled class="text-muted-foreground">
+                            Not available
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                    </div>
 
-                    <DropdownMenuSeparator />
+                    <!-- Tracklist/Description - mobile only (already visible as buttons on all screens) -->
+                    <div class="md:hidden">
+                        <DropdownMenuItem v-if="liveset.tracks?.length" @click="trackListRef?.open?.()">
+                            <ListMusic class="h-4 w-4 mr-2" />
+                            Tracklist
+                        </DropdownMenuItem>
+                        <DropdownMenuItem v-if="liveset.description" @click="descriptionRef?.open?.()">
+                            <FileText class="h-4 w-4 mr-2" />
+                            Description
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator v-if="liveset.tracks?.length || liveset.description" />
+                    </div>
 
-                    <DropdownMenuItem v-if="liveset.tracks?.length" @click="trackListRef?.open?.()">
-                        <ListMusic class="h-4 w-4 mr-2" />
-                        Tracklist
-                    </DropdownMenuItem>
-                    <DropdownMenuItem v-if="liveset.description" @click="descriptionRef?.open?.()">
-                        <FileText class="h-4 w-4 mr-2" />
-                        Description
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="shareRef?.open?.()">
-                        <Share2 class="h-4 w-4 mr-2" />
-                        Share
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuItem @click="handleMobileFavorite">
-                        <Heart class="h-4 w-4 mr-2" :class="{ 'fill-red-500 text-red-500': favorited }" />
-                        {{ favorited ? 'Unfavorite' : 'Favorite' }}
+                    <!-- Actions - always in menu -->
+                    <DropdownMenuItem @click="handleAddToQueue" :disabled="isInQueue">
+                        <CheckCircle v-if="justAddedToQueue || isInQueue" class="h-4 w-4 mr-2 text-green-500" />
+                        <ListEnd v-else class="h-4 w-4 mr-2" />
+                        {{ isInQueue ? 'In Queue' : 'Add to Queue' }}
                     </DropdownMenuItem>
                     <DropdownMenuItem @click="addToPlaylistRef?.openMenu?.()">
                         <ListPlus class="h-4 w-4 mr-2" />
                         Add to Playlist
                     </DropdownMenuItem>
+                    <DropdownMenuItem @click="shareRef?.open?.()">
+                        <Share2 class="h-4 w-4 mr-2" />
+                        Share
+                    </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
-
-                    </div>
+        </div>
 
         <div class="text-sm text-muted-foreground ml-2 shrink-0">
             {{ formatDuration(liveset.duration_in_seconds) }}
         </div>
+
+        <!-- Hidden components triggered by menu -->
+        <ShareLivesetButton ref="shareRef" :edition="edition" :liveset="liveset" class="hidden" />
+        <AddToPlaylistButton ref="addToPlaylistRef" :liveset-id="liveset.id" class="hidden" />
     </div>
 </template>
 

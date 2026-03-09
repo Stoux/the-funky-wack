@@ -2,6 +2,7 @@ import {onBeforeMount, onMounted, ref, watch} from "vue";
 import {Edition, Liveset, LivesetQuality} from "@/types";
 
 const lsKey = 'tfw::recently-playing';
+const autoplayLsKey = 'tfw::autoplay';
 
 let hasInitialSetup = false;
 
@@ -11,9 +12,18 @@ const audioQuality = ref<LivesetQuality>('hq');
 const loading = ref(false);
 const playing = ref(false);
 const finished = ref(false);
-const autoplaying = ref(false);
+const autoplaying = ref(localStorage.getItem(autoplayLsKey) === '1');
 const currentTime = ref(0);
 const restoredState = ref<StoredState|undefined>(undefined);
+
+// Persist autoplay setting
+watch(autoplaying, (isAutoplaying) => {
+    if (isAutoplaying) {
+        localStorage.setItem(autoplayLsKey, '1');
+    } else {
+        localStorage.removeItem(autoplayLsKey);
+    }
+});
 
 export type StoredState = {
     liveset: number,

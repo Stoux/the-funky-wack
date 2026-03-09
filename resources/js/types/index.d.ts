@@ -183,3 +183,15 @@ export interface PlaylistItem {
     liveset?: Liveset | null;
     position: number;
 }
+
+// Queue system types
+export type QueueSource =
+    | { type: 'playlist'; shareCode: string }
+    | { type: 'favorites' }
+    | { type: 'edition'; editionId: number };
+
+export interface QueueItem {
+    id: string;           // unique id for list key
+    livesetId: number;
+    source: QueueSource;
+}

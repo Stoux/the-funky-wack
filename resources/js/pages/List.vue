@@ -7,6 +7,7 @@ import AutoplayButton from "@/components/AutoplayButton.vue";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
 import {useEditions} from "@/composables/useEditions";
 import {useAudioPlayer} from "@/composables/useAudioPlayer";
+import {useQueue} from "@/composables/useQueue";
 import TrackSearch from "@/components/TrackSearch.vue";
 import {useTrackSearch} from "@/composables/useTrackSearch";
 import UserMenu from "@/components/UserMenu.vue";
@@ -27,6 +28,9 @@ onMounted(() => {
 // Use the shared audio player
 const { playLiveset } = useAudioPlayer();
 
+// Queue system (handles auto-advance when playing from playlists/favorites)
+const { isQueueActive, clearQueue } = useQueue();
+
 // State for the currently playing liveset
 const {
     currentLiveset,
@@ -37,13 +41,18 @@ const {
 } = useNowPlayingState();
 
 watch(finished, isFinished => {
-    if (isFinished) {
+    // Only autoplay from edition if queue is not active
+    // Queue handles its own auto-advance
+    if (isFinished && !isQueueActive.value) {
         possiblyAutoplayNextLiveset();
     }
 })
 
 // Play a liveset
 const handlePlayLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, atTime: number = 0) => {
+    // Clear any active queue when playing from home screen
+    // (user is switching to edition-based autoplay)
+    clearQueue();
     playLiveset(edition, liveset, quality, atTime);
 };
 

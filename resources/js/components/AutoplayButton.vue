@@ -1,30 +1,12 @@
 <script setup lang="ts">
 
-import {computed, onBeforeMount, watch} from "vue";
 import {Switch} from "@/components/ui/switch";
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from "@/components/ui/tooltip";
 import {Label} from "@/components/ui/label";
 
-const lsKey = 'tfw::autoplay';
-
+// Autoplay state is managed by useNowPlayingState (which handles persistence)
 const autoplaying = defineModel<boolean>('autoplaying', {
     default: false,
-});
-
-
-watch(autoplaying, (isAutoplaying) => {
-    if (isAutoplaying) {
-        localStorage.setItem(lsKey, '1');
-    } else {
-        localStorage.removeItem(lsKey);
-    }
-})
-
-onBeforeMount(() => {
-    // Load last state from localStorage
-    if (localStorage.getItem(lsKey)) {
-        autoplaying.value = true;
-    }
 });
 </script>
 

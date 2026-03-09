@@ -8,9 +8,11 @@ import FavoriteButton from '@/components/FavoriteButton.vue';
 import { formatDuration } from '@/lib/utils';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 import { useEditions } from '@/composables/useEditions';
+import { useQueue } from '@/composables/useQueue';
 
 const { playLiveset } = useAudioPlayer();
 const { findLivesetById } = useEditions();
+const { setQueue } = useQueue();
 
 interface FavoriteItem {
     id: number;
@@ -57,6 +59,16 @@ function formatDate(dateString: string): string {
 function handlePlay(livesetId: number) {
     const result = findLivesetById(livesetId);
     if (result) {
+        // Queue remaining favorites after the one being played
+        const itemIndex = favorites.value.findIndex(f => f.id === livesetId);
+        if (itemIndex >= 0) {
+            const remaining = favorites.value.slice(itemIndex + 1);
+            setQueue(
+                remaining.map(f => f.id),
+                { type: 'favorites' }
+            );
+        }
+
         playLiveset(result.edition, result.liveset);
     }
 }

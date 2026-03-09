@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 import { useEditions } from '@/composables/useEditions';
+import { useQueue } from '@/composables/useQueue';
 import {
     Select,
     SelectContent,
@@ -37,6 +38,7 @@ import { formatDuration } from '@/lib/utils';
 
 const { playLiveset } = useAudioPlayer();
 const { findLivesetById } = useEditions();
+const { setQueue } = useQueue();
 
 interface PlaylistItem {
     id: number;
@@ -263,6 +265,18 @@ function getCsrfToken(): string {
 function handlePlay(livesetId: number) {
     const result = findLivesetById(livesetId);
     if (result) {
+        // Queue remaining items after the one being played
+        if (playlist.value) {
+            const itemIndex = playlist.value.items.findIndex(i => i.liveset_id === livesetId);
+            if (itemIndex >= 0) {
+                const remaining = playlist.value.items.slice(itemIndex + 1);
+                setQueue(
+                    remaining.map(item => item.liveset_id),
+                    { type: 'playlist', shareCode: props.shareCode }
+                );
+            }
+        }
+
         playLiveset(result.edition, result.liveset);
     }
 }
