@@ -60,6 +60,14 @@ class UserController extends Controller
     }
 
     /**
+     * Show the link device page.
+     */
+    public function linkDevice(Request $request): Response
+    {
+        return Inertia::render('User/LinkDevice');
+    }
+
+    /**
      * Show playlists overview (user's playlists + public playlists).
      */
     public function playlists(Request $request): Response

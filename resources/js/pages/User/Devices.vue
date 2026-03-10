@@ -33,6 +33,7 @@ import {
     Check,
     ChevronDown,
     ChevronUp,
+    LinkIcon,
 } from 'lucide-vue-next';
 import UserMenu from '@/components/UserMenu.vue';
 import { useAuth } from '@/composables/useAuth';
@@ -278,9 +279,17 @@ onMounted(() => {
                 <UserMenu />
             </div>
 
-            <p class="text-muted-foreground">
-                Manage the devices connected to your account. Hidden devices won't appear in "Continue listening" suggestions.
-            </p>
+            <div class="flex items-center justify-between">
+                <p class="text-muted-foreground">
+                    Manage the devices connected to your account. Hidden devices won't appear in "Continue listening" suggestions.
+                </p>
+                <Link :href="route('user.link-device')">
+                    <Button variant="outline" size="sm" class="shrink-0">
+                        <LinkIcon class="h-4 w-4 mr-2" />
+                        Link a Device
+                    </Button>
+                </Link>
+            </div>
 
             <div v-if="loading" class="text-center py-8">
                 <p class="text-muted-foreground">Loading...</p>

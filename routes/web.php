@@ -35,6 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/history', [UserController::class, 'history'])->name('user.history');
     Route::get('/favorites', [UserController::class, 'favorites'])->name('user.favorites');
     Route::get('/devices', [UserController::class, 'devices'])->name('user.devices');
+    Route::get('/link', [UserController::class, 'linkDevice'])->name('user.link-device');
 });
 
 // Playlists - public overview + individual playlist view

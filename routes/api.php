@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DeviceCodeController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\InviteController;
@@ -32,6 +33,11 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', [AuthController::class, 'user']);
     });
+
+    // Device code authentication
+    Route::middleware('throttle:5,1')->post('/device-code', [DeviceCodeController::class, 'store']);
+    Route::middleware('throttle:30,1')->get('/device-code/{code}/poll', [DeviceCodeController::class, 'poll']);
+    Route::middleware('auth:sanctum')->post('/device-code/{code}/authorize', [DeviceCodeController::class, 'authorize']);
 });
 
 // Play tracking - works for both authenticated and anonymous users
