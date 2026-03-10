@@ -251,9 +251,21 @@ export function useQueue() {
         hasAutoAdvanceSetup = true;
 
         watch(finished, (isFinished) => {
-            if (isFinished && isQueueActive.value && queueItems.value.length > 0) {
+            if (!isFinished) {
+                return;
+            }
+
+            if (isQueueActive.value && queueItems.value.length > 0) {
                 console.log('[Queue] Track finished, advancing to next in queue');
                 playNext();
+                return;
+            }
+
+            // Queue empty — fall back to edition autoplay
+            const next = nextAutoplayItem.value;
+            if (next) {
+                console.log('[Queue] Track finished, autoplaying next:', next.liveset.title);
+                playLiveset(next.edition, next.liveset);
             }
         });
     }
