@@ -33,7 +33,11 @@ const formatTracksForTextarea = (tracks: LivesetTrack[] | undefined): string => 
     if (!tracks || tracks.length === 0) return '';
 
     return tracks.map(track => {
-        // Convert timestamp from seconds to HH:MM:SS format
+        if (track.transition_start !== null && track.transition_start !== undefined) {
+            const blendStart = formatDuration(track.transition_start, true, '--:--:--');
+            const takesOver = formatDuration(track.timestamp, true, '--:--:--');
+            return `~${blendStart} ${takesOver} | ${track.title}`;
+        }
         const formattedTimestamp = formatDuration(track.timestamp, true, '--:--:--');
         return `${formattedTimestamp} | ${track.title}`;
     }).join('\n');
@@ -304,7 +308,8 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                                     <Label for="tracks_text">Tracks</Label>
                                     <div class="text-sm text-gray-500 mb-1">
                                         Format: [hh]:[mm]:[ss] | {title/name} (one track per line) <br />
-                                        No timestamp: --:--:-- | {title/name}
+                                        No timestamp: --:--:-- | {title/name} <br />
+                                        Transition: ~[blend_start] [takes_over] | {title/name}
                                     </div>
                                 </div>
                                 <div class="flex space-x-2">

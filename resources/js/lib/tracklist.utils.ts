@@ -7,6 +7,7 @@ export type NowPlayingTrack = {
     ends_at: number,
     title?: string,
     originalTrackIndex?: number,
+    transition_start?: number,
 }
 
 export function isPlaying(track: NowPlayingTrack, now: number) {
@@ -56,4 +57,42 @@ export function determineNowPlayingTrack(
     // Didn't find a track that was playing... Shouldn't really happen, as we always have full coverage of the duration of the set.
     console.error('Did not match any playing track', nowPlayingIndex, tracks);
     return undefined;
+}
+
+/**
+ * Determine all currently active track indices, accounting for transitions.
+ *
+ * During a transition overlap zone (transition_start → start_at), both the incoming
+ * track and the previous track are considered "now playing".
+ *
+ * @returns Array of active NowPlayingTrack indices (usually 1, sometimes 2 during transitions)
+ */
+export function determineNowPlayingTracks(
+    tracks: NowPlayingTrack[],
+    currentTime: number,
+): number[] {
+    for (let i = 0; i < tracks.length; i++) {
+        const track = tracks[i];
+
+        if (!isPlaying(track, currentTime)) {
+            continue;
+        }
+
+        // This track is playing. Check if the NEXT track has a transition zone
+        // that also covers the current time (overlap zone).
+        const next = tracks[i + 1];
+        if (
+            next?.transition_start !== undefined &&
+            next.transition_start !== null &&
+            currentTime >= next.transition_start &&
+            currentTime < next.start_at
+        ) {
+            // We're in the overlap zone — both this track (outgoing) and next (incoming) are active
+            return [i, i + 1];
+        }
+
+        return [i];
+    }
+
+    return [];
 }

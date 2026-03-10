@@ -36,6 +36,8 @@ const {
 
 const {
     nowPlayingTrack,
+    nowPlayingTracks: activeNowPlayingTracks,
+    nowPlayingTrackIndices: activeNowPlayingIndices,
 } = useTracklistNowPlaying();
 
 
@@ -44,7 +46,7 @@ const isCurrentLiveset = computed(() => {
 })
 
 /**
- * The index of the currently playing track in the original tracklist.
+ * The index of the currently playing track in the original tracklist (primary/incoming track).
  */
 const nowPlayingIndex = computed<number|undefined>(() => {
     if (!isCurrentLiveset.value) {
@@ -54,18 +56,51 @@ const nowPlayingIndex = computed<number|undefined>(() => {
     return nowPlayingTrack.value?.originalTrackIndex;
 })
 
+/**
+ * Set of all active originalTrackIndex values (includes both tracks during transitions).
+ */
+const nowPlayingIndices = computed<Set<number>>(() => {
+    if (!isCurrentLiveset.value) {
+        return new Set();
+    }
+
+    const indices = new Set<number>();
+    for (const track of activeNowPlayingTracks.value) {
+        if (track.originalTrackIndex !== undefined) {
+            indices.add(track.originalTrackIndex);
+        }
+    }
+    return indices;
+})
+
+/**
+ * The primary (incoming) track index — the highest active index during a transition.
+ */
+const primaryNowPlayingIndex = computed<number|undefined>(() => {
+    if (!isCurrentLiveset.value || nowPlayingIndices.value.size === 0) {
+        return undefined;
+    }
+
+    // During a transition, the incoming track has the higher originalTrackIndex
+    const activeOriginalIndices = activeNowPlayingTracks.value
+        .map(t => t.originalTrackIndex)
+        .filter((i): i is number => i !== undefined);
+
+    return activeOriginalIndices.length > 0 ? Math.max(...activeOriginalIndices) : undefined;
+})
+
 watch(isOpen, open => {
-    if (!open || nowPlayingIndex.value === undefined) {
+    if (!open || primaryNowPlayingIndex.value === undefined) {
         return;
     }
 
-    // Scroll to the track currently playing by finding js-now-playing inside the list
+    // Scroll to the primary (incoming) track currently playing
     nextTick(() => {
-        if (!trackElements.value?.length || nowPlayingIndex.value === undefined) {
+        if (!trackElements.value?.length || primaryNowPlayingIndex.value === undefined) {
             return;
         }
 
-        const nowPlayingDiv = trackElements.value[nowPlayingIndex.value];
+        const nowPlayingDiv = trackElements.value[primaryNowPlayingIndex.value];
         if (nowPlayingDiv) {
             nowPlayingDiv.scrollIntoView({
                 behavior: 'instant',
@@ -111,7 +146,12 @@ defineExpose({ open });
             <ScrollArea class="h-full flex-1 overflow-y-auto" ref="scrollContainer">
                 <div class="flex flex-col" v-if="liveset.tracks?.length" ref="listDiv">
                     <div class="px-4 py-2" v-for="(track, index) of liveset.tracks" :key="track.id" ref="trackElements">
-                        <div :class="{ 'text-green-600 js-now-playing': index === nowPlayingIndex, 'text-muted-foreground': index !== nowPlayingIndex, 'cursor-pointer': index !== undefined }"
+                        <div :class="{
+                                 'text-green-600 js-now-playing': index === primaryNowPlayingIndex,
+                                 'text-green-600/60': nowPlayingIndices.has(index) && index !== primaryNowPlayingIndex,
+                                 'text-muted-foreground': !nowPlayingIndices.has(index),
+                                 'cursor-pointer': index !== undefined,
+                             }"
                              @click="goToTime(track.timestamp ?? 0)"
                              v-if="track.timestamp !== null">
                             #{{ track.order }} &bull; {{ formatDuration(track.timestamp)}}

@@ -30,6 +30,7 @@ const {
     availableQualities,
     qualityLabels,
     nowPlayingTrack,
+    nowPlayingTracks,
     mount,
     unmount,
     togglePlayPause,
@@ -285,7 +286,10 @@ function handleWaveformClick(): void {
 
             <div class="text-sm text-right hidden lg:block" v-if="currentLiveset?.tracks?.length">
                 <div class="font-medium">Now playing</div>
-                <div class="text-muted-foreground">{{ nowPlayingTrack?.title || '?' }}</div>
+                <div class="text-muted-foreground" v-if="nowPlayingTracks.length >= 2">
+                    {{ nowPlayingTracks[0]?.title || '?' }} → {{ nowPlayingTracks[1]?.title || '?' }}
+                </div>
+                <div class="text-muted-foreground" v-else>{{ nowPlayingTrack?.title || '?' }}</div>
             </div>
 
             <Button variant="destructive" v-if="!loading && hasPeaks === false && !generatePeaksIfMissing" @click="toggleGeneratePeaks"

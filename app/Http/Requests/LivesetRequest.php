@@ -66,7 +66,60 @@ abstract class LivesetRequest extends FormRequest
             if (preg_match('/^--:--:--\s*\|\s*(?P<title>.+)$/', $line, $matches)) {
                 $tracks[] = [
                     'timestamp' => null,
+                    'transition_start' => null,
                     'title' => $matches['title'],
+                    'order' => $order++,
+                ];
+
+                continue;
+            }
+
+            // Transition format: ~{blend_start} {takes_over} | {title}
+            if (preg_match('/^~(\d{1,2}):(\d{2}):(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})\s*\|\s*(.+)$/', $line, $matches)) {
+                $blendHours = (int) $matches[1];
+                $blendMinutes = (int) $matches[2];
+                $blendSeconds = (int) $matches[3];
+                $takesOverHours = (int) $matches[4];
+                $takesOverMinutes = (int) $matches[5];
+                $takesOverSeconds = (int) $matches[6];
+                $title = trim($matches[7]);
+
+                $displayLine = $lineNumber + 1;
+
+                if ($blendMinutes >= 60 || $blendSeconds >= 60 || $takesOverMinutes >= 60 || $takesOverSeconds >= 60) {
+                    throw ValidationException::withMessages([
+                        'tracks_text' => ["Line {$displayLine}: Invalid time format. Minutes and seconds must be less than 60."],
+                    ])->status(429);
+                }
+
+                $transitionStart = $blendHours * 3600 + $blendMinutes * 60 + $blendSeconds;
+                $timestamp = $takesOverHours * 3600 + $takesOverMinutes * 60 + $takesOverSeconds;
+
+                if ($transitionStart >= $timestamp) {
+                    throw ValidationException::withMessages([
+                        'tracks_text' => ["Line {$displayLine}: Blend start must be before the takes-over timestamp."],
+                    ])->status(429);
+                }
+
+                // Validate transition_start >= previous track's timestamp
+                $previousTimestamp = null;
+                for ($i = count($tracks) - 1; $i >= 0; $i--) {
+                    if ($tracks[$i]['timestamp'] !== null) {
+                        $previousTimestamp = $tracks[$i]['timestamp'];
+                        break;
+                    }
+                }
+
+                if ($previousTimestamp !== null && $transitionStart < $previousTimestamp) {
+                    throw ValidationException::withMessages([
+                        'tracks_text' => ["Line {$displayLine}: Blend start cannot be before the previous track's timestamp."],
+                    ])->status(429);
+                }
+
+                $tracks[] = [
+                    'timestamp' => $timestamp,
+                    'transition_start' => $transitionStart,
+                    'title' => $title,
                     'order' => $order++,
                 ];
 
@@ -99,6 +152,7 @@ abstract class LivesetRequest extends FormRequest
 
             $tracks[] = [
                 'timestamp' => $timestampInSeconds,
+                'transition_start' => null,
                 'title' => $title,
                 'order' => $order++,
             ];

@@ -17,6 +17,7 @@ class LivesetTrack extends Model
         'liveset_id',
         'title',
         'timestamp',
+        'transition_start',
         'order',
     ];
 

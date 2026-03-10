@@ -1,6 +1,6 @@
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
 import {computed, ref, watch} from "vue";
-import {determineNowPlayingTrack, isPlaying, NowPlayingTrack} from "@/lib/tracklist.utils";
+import {determineNowPlayingTrack, determineNowPlayingTracks, NowPlayingTrack} from "@/lib/tracklist.utils";
 
 
 const {
@@ -47,6 +47,7 @@ const tracks = computed<NowPlayingTrack[]>(() => {
             ends_at: Number.MAX_SAFE_INTEGER,
             title: livesetTrack.title,
             originalTrackIndex: i,
+            transition_start: livesetTrack.transition_start ?? undefined,
         })
     }
 
@@ -62,6 +63,7 @@ const tracks = computed<NowPlayingTrack[]>(() => {
 });
 
 const nowPlayingTrackIndex = ref<number|undefined>(undefined);
+const nowPlayingTrackIndices = ref<number[]>([]);
 
 const nowPlayingTrack = computed(() => {
     if (nowPlayingTrackIndex.value === undefined) {
@@ -71,11 +73,22 @@ const nowPlayingTrack = computed(() => {
     return tracks.value[nowPlayingTrackIndex.value];
 })
 
+const nowPlayingTracks = computed(() => {
+    return nowPlayingTrackIndices.value
+        .map(i => tracks.value[i])
+        .filter(Boolean);
+})
+
 const onNowPlayingChange = () => {
     nowPlayingTrackIndex.value = determineNowPlayingTrack(
         tracks.value,
         currentTime.value,
         nowPlayingTrackIndex.value,
+    );
+
+    nowPlayingTrackIndices.value = determineNowPlayingTracks(
+        tracks.value,
+        currentTime.value,
     );
 };
 
@@ -89,6 +102,8 @@ export function useTracklistNowPlaying() {
     return {
         nowPlayingSections: tracks,
         nowPlayingTrack,
+        nowPlayingTracks,
+        nowPlayingTrackIndices,
     }
 }
 

@@ -7,7 +7,7 @@ import { usePlaybackSync } from './usePlaybackSync';
 import { useTracklistNowPlaying } from './useTracklistNowPlaying';
 import { useCastMedia } from './useCastMedia';
 import { formatDuration } from '@/lib/utils';
-import { determineNowPlayingTrack } from '@/lib/tracklist.utils';
+import { determineNowPlayingTrack, determineNowPlayingTracks } from '@/lib/tracklist.utils';
 
 // Module-level state (survives navigation)
 let waveInstance: WaveSurfer | undefined = undefined;
@@ -44,6 +44,7 @@ export function useAudioPlayer() {
     const {
         nowPlayingSections,
         nowPlayingTrack,
+        nowPlayingTracks,
     } = useTracklistNowPlaying();
 
     const castMedia = useCastMedia();
@@ -216,13 +217,29 @@ export function useAudioPlayer() {
                     formatTimeCallback: (seconds) => {
                         seconds = Math.floor(seconds);
 
+                        const duration = formatDuration(seconds);
+
+                        // Check for transition (two active tracks)
+                        const activeIndices = determineNowPlayingTracks(
+                            nowPlayingSections.value,
+                            seconds,
+                        );
+
+                        if (activeIndices.length === 2) {
+                            const outgoing = nowPlayingSections.value[activeIndices[0]];
+                            const incoming = nowPlayingSections.value[activeIndices[1]];
+                            if (outgoing?.title && incoming?.title) {
+                                return `${duration} | ${outgoing.title} → ${incoming.title}`;
+                            }
+                        }
+
+                        // Single track — use existing singular lookup for efficiency
                         lastShownTrackIndex = determineNowPlayingTrack(
                             nowPlayingSections.value,
                             seconds,
                             lastShownTrackIndex,
                         );
 
-                        const duration = formatDuration(seconds);
                         if (lastShownTrackIndex === undefined) {
                             return duration;
                         }
@@ -420,6 +437,7 @@ export function useAudioPlayer() {
         availableQualities,
         qualityLabels,
         nowPlayingTrack,
+        nowPlayingTracks,
 
         // Methods
         mount,

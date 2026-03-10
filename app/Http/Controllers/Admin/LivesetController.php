@@ -82,6 +82,7 @@ class LivesetController extends Controller
                     $liveset->tracks()->create([
                         'title' => $track['title'],
                         'timestamp' => $track['timestamp'],
+                        'transition_start' => $track['transition_start'],
                         'order' => $track['order'],
                     ]);
                 }
@@ -140,6 +141,7 @@ class LivesetController extends Controller
                     $liveset->tracks()->create([
                         'title' => $track['title'],
                         'timestamp' => $track['timestamp'],
+                        'transition_start' => $track['transition_start'],
                         'order' => $track['order'],
                     ]);
                 }

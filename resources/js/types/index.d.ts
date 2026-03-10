@@ -98,6 +98,8 @@ export type LivesetTrack = {
     title: string,
     // Timestamp in seconds from start of liveset
     timestamp: number|null,
+    // Seconds from liveset start where this track begins blending in (transition overlap)
+    transition_start: number|null,
     order: number,
 }
 
