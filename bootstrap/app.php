@@ -37,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->statefulApi();
 
-        $middleware->redirectGuestsTo('/login');
+        $middleware->redirectGuestsTo(fn ($request) => $request->expectsJson() ? null : '/login');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

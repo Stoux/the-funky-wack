@@ -46,8 +46,8 @@ Route::prefix('playback')->middleware('throttle:30,1')->group(function () {
     Route::post('/track', [PlaybackController::class, 'recordPlay']);
 });
 
-// Public playlist endpoints (no auth required)
-Route::get('/playlists/public', [PlaylistController::class, 'publicIndex']);
+// Public playlist endpoints (no auth required, authenticated users get extra data)
+Route::get('/playlists', [PlaylistController::class, 'index']);
 Route::get('/playlists/{shareCode}', [PlaylistController::class, 'show']);
 
 // Protected routes (require authentication)
@@ -79,7 +79,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/favorites/{liveset}', [FavoriteController::class, 'destroy']);
 
     // Playlists
-    Route::get('/playlists', [PlaylistController::class, 'index']);
     Route::post('/playlists', [PlaylistController::class, 'store']);
     Route::put('/playlists/{shareCode}', [PlaylistController::class, 'update']);
     Route::delete('/playlists/{shareCode}', [PlaylistController::class, 'destroy']);

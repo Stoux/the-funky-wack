@@ -31,18 +31,13 @@ const createDialogOpen = ref(false);
 async function loadPlaylists() {
     loading.value = true;
     try {
-        const endpoint = isAuthenticated.value ? '/api/playlists' : '/api/playlists/public';
-        const response = await fetch(endpoint, {
+        const response = await fetch('/api/playlists', {
             credentials: 'include',
         });
         if (response.ok) {
             const data = await response.json();
-            if (isAuthenticated.value) {
-                myPlaylists.value = data.playlists || [];
-                publicPlaylists.value = data.publicPlaylists || [];
-            } else {
-                publicPlaylists.value = data.playlists || [];
-            }
+            myPlaylists.value = data.playlists || [];
+            publicPlaylists.value = data.publicPlaylists || [];
         }
     } catch (error) {
         console.error('Failed to load playlists:', error);

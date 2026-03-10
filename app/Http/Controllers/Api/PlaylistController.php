@@ -12,51 +12,46 @@ use Illuminate\Validation\Rule;
 class PlaylistController extends Controller
 {
     /**
-     * List the user's playlists.
+     * List playlists. Authenticated users get their own playlists + public ones.
+     * Guests get only public playlists.
      */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        $myPlaylists = $user
-            ->playlists()
-            ->withCount('items')
-            ->orderByDesc('updated_at')
-            ->get()
-            ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, true));
-
-        $publicPlaylists = Playlist::query()
+        $publicPlaylistsQuery = Playlist::query()
             ->where('visibility', 'public')
-            ->where('user_id', '!=', $user->id)
             ->with('user:id,name')
             ->withCount('items')
             ->orderByDesc('updated_at')
-            ->limit(50)
+            ->limit(50);
+
+        if ($user) {
+            $myPlaylists = $user
+                ->playlists()
+                ->withCount('items')
+                ->orderByDesc('updated_at')
+                ->get()
+                ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, true));
+
+            $publicPlaylists = $publicPlaylistsQuery
+                ->where('user_id', '!=', $user->id)
+                ->get()
+                ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, false));
+
+            return response()->json([
+                'playlists' => $myPlaylists,
+                'publicPlaylists' => $publicPlaylists,
+            ]);
+        }
+
+        $publicPlaylists = $publicPlaylistsQuery
             ->get()
             ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, false));
 
         return response()->json([
-            'playlists' => $myPlaylists,
+            'playlists' => [],
             'publicPlaylists' => $publicPlaylists,
-        ]);
-    }
-
-    /**
-     * List public playlists (for non-authenticated users).
-     */
-    public function publicIndex(): JsonResponse
-    {
-        $playlists = Playlist::query()
-            ->where('visibility', 'public')
-            ->with('user:id,name')
-            ->withCount('items')
-            ->orderByDesc('updated_at')
-            ->limit(50)
-            ->get()
-            ->map(fn (Playlist $playlist) => $this->formatPlaylist($playlist, false));
-
-        return response()->json([
-            'playlists' => $playlists,
         ]);
     }
 
