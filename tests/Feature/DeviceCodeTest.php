@@ -39,7 +39,7 @@ describe('GET /api/auth/device-code/{code}/poll', function () {
     it('returns pending for unauthorized code', function () {
         $deviceCode = DeviceCode::factory()->create();
 
-        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll");
+        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll?client_id={$deviceCode->client_id}");
 
         $response->assertStatus(202)
             ->assertJson(['status' => 'pending']);
@@ -50,7 +50,7 @@ describe('GET /api/auth/device-code/{code}/poll', function () {
 
         app(DeviceCodeService::class)->authorize($deviceCode, $this->user);
 
-        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll");
+        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll?client_id={$deviceCode->client_id}");
 
         $response->assertOk()
             ->assertJson(['status' => 'authorized'])
@@ -65,12 +65,12 @@ describe('GET /api/auth/device-code/{code}/poll', function () {
         app(DeviceCodeService::class)->authorize($deviceCode, $this->user);
 
         // First poll gets the token
-        $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll")
+        $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll?client_id={$deviceCode->client_id}")
             ->assertOk()
             ->assertJson(['status' => 'authorized']);
 
         // Second poll returns expired (token consumed)
-        $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll")
+        $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll?client_id={$deviceCode->client_id}")
             ->assertStatus(410)
             ->assertJson(['status' => 'expired']);
     });
@@ -78,17 +78,35 @@ describe('GET /api/auth/device-code/{code}/poll', function () {
     it('returns expired for expired code', function () {
         $deviceCode = DeviceCode::factory()->expired()->create();
 
-        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll");
+        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll?client_id={$deviceCode->client_id}");
 
         $response->assertStatus(410)
             ->assertJson(['status' => 'expired']);
     });
 
     it('returns expired for nonexistent code', function () {
-        $response = $this->getJson('/api/auth/device-code/TFW-ZZZZZZ/poll');
+        $response = $this->getJson('/api/auth/device-code/TFW-ZZZZZZ/poll?client_id=unknown');
 
         $response->assertStatus(410)
             ->assertJson(['status' => 'expired']);
+    });
+
+    it('returns expired for wrong client_id', function () {
+        $deviceCode = DeviceCode::factory()->create();
+
+        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll?client_id=wrong-client");
+
+        $response->assertStatus(410)
+            ->assertJson(['status' => 'expired']);
+    });
+
+    it('requires client_id parameter', function () {
+        $deviceCode = DeviceCode::factory()->create();
+
+        $response = $this->getJson("/api/auth/device-code/{$deviceCode->code}/poll");
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['client_id']);
     });
 });
 

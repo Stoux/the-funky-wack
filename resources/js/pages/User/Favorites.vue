@@ -81,7 +81,7 @@ onMounted(() => {
 <template>
     <Head title="Favorites" />
 
-    <div class="min-h-screen p-4">
+    <div class="p-4">
         <div class="max-w-4xl mx-auto space-y-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">

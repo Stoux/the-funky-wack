@@ -54,7 +54,8 @@ Route::get('/playlists/{shareCode}', [PlaylistController::class, 'show']);
 Route::middleware('auth:sanctum')->group(function () {
     // Invite codes
     Route::get('/invites', [InviteController::class, 'index']);
-    Route::post('/invites', [InviteController::class, 'store']);
+    Route::middleware('throttle:10,1')->post('/invites', [InviteController::class, 'store']);
+    Route::delete('/invites/{invite}', [InviteController::class, 'destroy']);
 
     // Devices
     Route::get('/devices', [DeviceController::class, 'index']);
@@ -107,6 +108,8 @@ Route::prefix('live')->group(function () {
 // Protected routes (require authentication) - user settings
 Route::middleware('auth:sanctum')->group(function () {
     Route::put('/settings/visibility', [UserSettingsController::class, 'updateVisibility']);
+    Route::put('/settings/profile', [UserSettingsController::class, 'updateProfile']);
+    Route::put('/settings/password', [UserSettingsController::class, 'updatePassword']);
 });
 
 // Reverb webhook for presence channel events (disconnect detection)

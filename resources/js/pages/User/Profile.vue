@@ -2,8 +2,10 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Copy, Check, Plus, UserCheck, Eye } from 'lucide-vue-next';
+import { ArrowLeft, Copy, Check, Plus, UserCheck, Eye, X } from 'lucide-vue-next';
 import type { ListeningVisibility } from '@/types';
 import UserMenu from '@/components/UserMenu.vue';
 import { useAuth } from '@/composables/useAuth';
@@ -52,6 +54,92 @@ async function updateVisibility(value: ListeningVisibility) {
     }
 }
 
+// Profile editing
+const profileName = ref(user.value?.name ?? '');
+const profileEmail = ref(user.value?.email ?? '');
+const savingProfile = ref(false);
+const profileSuccess = ref('');
+const profileErrors = ref<Record<string, string[]>>({});
+
+async function updateProfile() {
+    savingProfile.value = true;
+    profileSuccess.value = '';
+    profileErrors.value = {};
+    try {
+        const response = await fetch('/api/settings/profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': getCsrfToken(),
+            },
+            credentials: 'include',
+            body: JSON.stringify({ name: profileName.value, email: profileEmail.value }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            profileSuccess.value = data.message;
+            if (user.value) {
+                user.value.name = data.user.name;
+                user.value.email = data.user.email;
+            }
+        } else if (data.errors) {
+            profileErrors.value = data.errors;
+        }
+    } catch (error) {
+        console.error('Failed to update profile:', error);
+    } finally {
+        savingProfile.value = false;
+    }
+}
+
+// Password change
+const currentPassword = ref('');
+const newPassword = ref('');
+const confirmPassword = ref('');
+const savingPassword = ref(false);
+const passwordSuccess = ref('');
+const passwordErrors = ref<Record<string, string[]>>({});
+
+async function updatePassword() {
+    savingPassword.value = true;
+    passwordSuccess.value = '';
+    passwordErrors.value = {};
+    try {
+        const response = await fetch('/api/settings/password', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': getCsrfToken(),
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                current_password: currentPassword.value,
+                password: newPassword.value,
+                password_confirmation: confirmPassword.value,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            passwordSuccess.value = data.message;
+            currentPassword.value = '';
+            newPassword.value = '';
+            confirmPassword.value = '';
+        } else if (data.errors) {
+            passwordErrors.value = data.errors;
+        }
+    } catch (error) {
+        console.error('Failed to update password:', error);
+    } finally {
+        savingPassword.value = false;
+    }
+}
+
 async function generateInviteCode() {
     generating.value = true;
     try {
@@ -76,6 +164,25 @@ async function generateInviteCode() {
         console.error('Failed to generate invite code:', error);
     } finally {
         generating.value = false;
+    }
+}
+
+async function revokeInvite(id: number) {
+    try {
+        const response = await fetch(`/api/invites/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': getCsrfToken(),
+            },
+            credentials: 'include',
+        });
+
+        if (response.ok) {
+            invites.value = invites.value.filter(i => i.id !== id);
+        }
+    } catch (error) {
+        console.error('Failed to revoke invite:', error);
     }
 }
 
@@ -111,7 +218,7 @@ function getCsrfToken(): string {
 <template>
     <Head title="Profile" />
 
-    <div class="min-h-screen p-4">
+    <div class="p-4">
         <div class="max-w-4xl mx-auto space-y-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
@@ -129,17 +236,59 @@ function getCsrfToken(): string {
             <Card>
                 <CardHeader>
                     <CardTitle>Account</CardTitle>
-                    <CardDescription>Your account information</CardDescription>
+                    <CardDescription>Update your name and email address</CardDescription>
                 </CardHeader>
-                <CardContent class="space-y-2">
-                    <div>
-                        <p class="text-sm text-muted-foreground">Name</p>
-                        <p class="font-medium">{{ user?.name }}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-muted-foreground">Email</p>
-                        <p class="font-medium">{{ user?.email }}</p>
-                    </div>
+                <CardContent>
+                    <form @submit.prevent="updateProfile" class="space-y-4">
+                        <div class="grid gap-2">
+                            <Label for="name">Name</Label>
+                            <Input id="name" v-model="profileName" autocomplete="name" />
+                            <p v-if="profileErrors.name" class="text-sm text-destructive">{{ profileErrors.name[0] }}</p>
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="email">Email</Label>
+                            <Input id="email" type="email" v-model="profileEmail" autocomplete="email" />
+                            <p v-if="profileErrors.email" class="text-sm text-destructive">{{ profileErrors.email[0] }}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <Button type="submit" :disabled="savingProfile">
+                                {{ savingProfile ? 'Saving...' : 'Save' }}
+                            </Button>
+                            <p v-if="profileSuccess" class="text-sm text-green-600 dark:text-green-400">{{ profileSuccess }}</p>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <!-- Change Password -->
+            <Card>
+                <CardHeader>
+                    <CardTitle>Password</CardTitle>
+                    <CardDescription>Change your password</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form @submit.prevent="updatePassword" class="space-y-4">
+                        <div class="grid gap-2">
+                            <Label for="current_password">Current Password</Label>
+                            <Input id="current_password" type="password" v-model="currentPassword" autocomplete="current-password" />
+                            <p v-if="passwordErrors.current_password" class="text-sm text-destructive">{{ passwordErrors.current_password[0] }}</p>
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="new_password">New Password</Label>
+                            <Input id="new_password" type="password" v-model="newPassword" autocomplete="new-password" />
+                            <p v-if="passwordErrors.password" class="text-sm text-destructive">{{ passwordErrors.password[0] }}</p>
+                        </div>
+                        <div class="grid gap-2">
+                            <Label for="confirm_password">Confirm New Password</Label>
+                            <Input id="confirm_password" type="password" v-model="confirmPassword" autocomplete="new-password" />
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <Button type="submit" :disabled="savingPassword">
+                                {{ savingPassword ? 'Updating...' : 'Update Password' }}
+                            </Button>
+                            <p v-if="passwordSuccess" class="text-sm text-green-600 dark:text-green-400">{{ passwordSuccess }}</p>
+                        </div>
+                    </form>
                 </CardContent>
             </Card>
 
@@ -211,16 +360,26 @@ function getCsrfToken(): string {
                         >
                             <div class="flex items-center space-x-3">
                                 <code class="font-mono text-lg tracking-wider">{{ invite.code }}</code>
-                                <Button
-                                    v-if="!invite.used_by"
-                                    variant="ghost"
-                                    size="icon"
-                                    class="h-8 w-8"
-                                    @click="copyCode(invite.code)"
-                                >
-                                    <Check v-if="copiedCode === invite.code" class="h-4 w-4 text-green-500" />
-                                    <Copy v-else class="h-4 w-4" />
-                                </Button>
+                                <template v-if="!invite.used_by">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="h-8 w-8"
+                                        @click="copyCode(invite.code)"
+                                    >
+                                        <Check v-if="copiedCode === invite.code" class="h-4 w-4 text-green-500" />
+                                        <Copy v-else class="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="h-8 w-8 text-destructive hover:text-destructive"
+                                        @click="revokeInvite(invite.id)"
+                                        title="Revoke code"
+                                    >
+                                        <X class="h-4 w-4" />
+                                    </Button>
+                                </template>
                             </div>
                             <div class="text-right text-sm">
                                 <div v-if="invite.used_by" class="flex items-center space-x-2 text-muted-foreground">

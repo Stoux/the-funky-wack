@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\DeviceCode;
 use App\Models\UserDevice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -108,6 +109,16 @@ class DeviceController extends Controller
         // Verify ownership
         if ($device->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Revoke any Sanctum tokens created via device code auth for this device
+        $deviceCodes = DeviceCode::where('client_id', $device->client_id)
+            ->where('user_id', $request->user()->id)
+            ->whereNotNull('token_id')
+            ->get();
+
+        foreach ($deviceCodes as $deviceCode) {
+            $deviceCode->token?->delete();
         }
 
         $device->delete();

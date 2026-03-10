@@ -36,6 +36,24 @@ class InviteController extends Controller
     }
 
     /**
+     * Revoke an unused invite code.
+     */
+    public function destroy(Request $request, InviteCode $invite): JsonResponse
+    {
+        if ($invite->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($invite->isUsed()) {
+            return response()->json(['message' => 'Cannot revoke a used invite code.'], 409);
+        }
+
+        $invite->delete();
+
+        return response()->json(['message' => 'Invite code revoked.']);
+    }
+
+    /**
      * Generate a new invite code.
      */
     public function store(Request $request): JsonResponse

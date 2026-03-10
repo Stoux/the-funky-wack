@@ -16,11 +16,7 @@ class DeviceCode extends Model
         'code',
         'client_id',
         'device_name',
-        'user_id',
-        'token_id',
-        'encrypted_token',
         'expires_at',
-        'authorized_at',
     ];
 
     protected function casts(): array

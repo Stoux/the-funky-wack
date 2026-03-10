@@ -33,9 +33,13 @@ class DeviceCodeController extends Controller
     /**
      * Poll a device code for authorization status.
      */
-    public function poll(string $code): JsonResponse
+    public function poll(string $code, Request $request): JsonResponse
     {
-        $result = $this->deviceCodeService->pollCode($code);
+        $request->validate([
+            'client_id' => ['required', 'string', 'max:64'],
+        ]);
+
+        $result = $this->deviceCodeService->pollCode($code, $request->query('client_id'));
 
         $statusCode = match ($result['status']) {
             'pending' => 202,

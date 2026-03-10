@@ -39,12 +39,12 @@ class DeviceCodeService
 
             $token = $user->createToken($deviceCode->device_name);
 
-            $deviceCode->update([
+            $deviceCode->forceFill([
                 'user_id' => $user->id,
                 'token_id' => $token->accessToken->id,
                 'encrypted_token' => $token->plainTextToken,
                 'authorized_at' => now(),
-            ]);
+            ])->save();
 
             return $deviceCode->fresh();
         });
@@ -55,9 +55,11 @@ class DeviceCodeService
      *
      * @return array{status: string, token?: string, user?: array}
      */
-    public function pollCode(string $code): array
+    public function pollCode(string $code, string $clientId): array
     {
-        $deviceCode = DeviceCode::where('code', strtoupper($code))->first();
+        $deviceCode = DeviceCode::where('code', strtoupper($code))
+            ->where('client_id', $clientId)
+            ->first();
 
         if (! $deviceCode || $deviceCode->isExpired()) {
             return ['status' => 'expired'];
@@ -73,7 +75,7 @@ class DeviceCodeService
             return ['status' => 'expired'];
         }
 
-        $deviceCode->update(['encrypted_token' => null]);
+        $deviceCode->forceFill(['encrypted_token' => null])->save();
 
         return [
             'status' => 'authorized',
