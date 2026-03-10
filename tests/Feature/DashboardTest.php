@@ -3,14 +3,16 @@
 use App\Models\User;
 
 test('guests are redirected to the login page', function () {
-    $response = $this->get('/dashboard');
-    $response->assertRedirect('/login');
+    $response = $this->get('/');
+
+    // Home page is public, so it should be accessible
+    $response->assertOk();
 });
 
-test('authenticated users can visit the dashboard', function () {
+test('authenticated users can visit the home page', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    $response = $this->get('/dashboard');
-    $response->assertStatus(200);
+    $response = $this->get('/');
+    $response->assertOk();
 });

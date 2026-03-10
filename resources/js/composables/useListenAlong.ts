@@ -89,7 +89,7 @@ export function useListenAlong() {
             if (response.ok) {
                 const data = await response.json();
                 const sessions = data.sessions || [];
-                console.log('[ListenAlong] fetchSessions response:', sessions.map(s => ({
+                console.log('[ListenAlong] fetchSessions response:', sessions.map((s: any) => ({
                     token: s.channel_token?.slice(0, 8),
                     liveset: s.liveset?.title,
                     position: s.position,
