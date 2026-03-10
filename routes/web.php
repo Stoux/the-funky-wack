@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\EditionController;
 use App\Http\Controllers\Admin\LivesetController;
 use App\Http\Controllers\Admin\LivesetFilesController;
 use App\Http\Controllers\Admin\LoginController as AdminLoginController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\UtilController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -77,6 +78,13 @@ Route::middleware('admin')->prefix('/admin')->group(function () {
     Route::post('/livesets/{liveset}/files/{file}/convert', [LivesetFilesController::class, 'convertLivesetFile'])->name('admin.livesets.files.convert');
     Route::post('/livesets/{liveset}/audiowaveform', [LivesetFilesController::class, 'generateAudiowaveform'])->name('admin.livesets.files.audiowaveform.generate');
     Route::delete('/livesets/{liveset}/audiowaveform', [LivesetFilesController::class, 'deleteAudiowaveform'])->name('admin.livesets.files.audiowaveform.delete');
+
+    Route::get('/users', [AdminUserController::class, 'users'])->name('admin.users');
+    Route::get('/users/new', [AdminUserController::class, 'newUser'])->name('admin.users.create');
+    Route::post('/users', [AdminUserController::class, 'storeUser'])->name('admin.users.store');
+    Route::get('/users/{user}', [AdminUserController::class, 'viewUser'])->name('admin.users.view');
+    Route::patch('/users/{user}', [AdminUserController::class, 'updateUser'])->name('admin.users.update');
+    Route::delete('/users/{user}', [AdminUserController::class, 'deleteUser'])->name('admin.users.delete');
 
     Route::post('/util/cue', [UtilController::class, 'parseCue'])->name('util.cue');
 
