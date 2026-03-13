@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 const form = useForm({
     email: '',
     password: '',
-    remember: false,
+    remember: true,
 });
 
 function submit() {
