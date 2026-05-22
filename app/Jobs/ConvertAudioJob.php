@@ -75,7 +75,7 @@ class ConvertAudioJob implements ShouldQueue
             default => throw new \Exception('Unsupported target quality: '.$this->target->quality->value),
         };
 
-        $convertProcess = \Process::run([$ffmpeg, '-i', $originalPath, '-c:a', 'aac', '-b:a', $qualityParam, $targetPath], function (string $type, string $output) {
+        $convertProcess = \Process::timeout(600)->run([$ffmpeg, '-i', $originalPath, '-c:a', 'aac', '-b:a', $qualityParam, $targetPath], function (string $type, string $output) {
             if ($type === 'err') {
                 Log::error($output);
             } else {
