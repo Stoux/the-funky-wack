@@ -17,6 +17,24 @@ class PlaybackController extends Controller
     ) {}
 
     /**
+     * Returns a stable session identifier. Web clients hit this with a real
+     * PHP session id; stateless mobile clients have no session middleware on
+     * /api/playback/track, so we fall back to the X-Client-ID header. Last
+     * resort: a synthesised id (anonymous events still record, just without
+     * cross-request correlation).
+     */
+    protected function resolveSessionId(Request $request): string
+    {
+        if ($request->hasSession() && $request->session()->isStarted()) {
+            return $request->session()->getId();
+        }
+
+        $clientId = $request->header('X-Client-ID') ?? $request->input('client_id');
+
+        return $clientId ?: 'anon-'.bin2hex(random_bytes(8));
+    }
+
+    /**
      * Get paginated play history for the authenticated user.
      */
     public function history(Request $request): JsonResponse
@@ -77,7 +95,7 @@ class PlaybackController extends Controller
 
         $user = $request->user();
         $userId = $user?->id;
-        $sessionId = $request->session()->getId();
+        $sessionId = $this->resolveSessionId($request);
 
         // Verify ownership for non-start events
         if ($validated['event'] !== 'start' && isset($validated['play_history_id'])) {

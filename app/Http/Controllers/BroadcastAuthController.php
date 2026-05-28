@@ -10,6 +10,23 @@ use Illuminate\Support\Facades\Cache;
 class BroadcastAuthController extends Controller
 {
     /**
+     * Stable session identifier for both web (real PHP session) and stateless
+     * mobile clients (X-Client-ID header). The /api/broadcast/auth route has
+     * no session middleware applied, so the session store is missing for
+     * mobile API requests — fall back to the device's client id instead.
+     */
+    protected function resolveSessionId(Request $request): string
+    {
+        if ($request->hasSession() && $request->session()->isStarted()) {
+            return $request->session()->getId();
+        }
+
+        $clientId = $request->header('X-Client-ID') ?? $request->input('client_id');
+
+        return $clientId ?: 'anon-'.bin2hex(random_bytes(8));
+    }
+
+    /**
      * Authenticate the request for channel access.
      * Unlike Laravel's default, this allows guest users for specific channels.
      */
@@ -48,7 +65,7 @@ class BroadcastAuthController extends Controller
     {
         // Extract session ID from channel name (presence-playback.{sessionId})
         $requestedSessionId = str_replace('presence-playback.', '', $channelName);
-        $currentSessionId = $request->session()->getId();
+        $currentSessionId = $this->resolveSessionId($request);
 
         \Log::debug('Playback channel auth', [
             'channel' => $channelName,
@@ -96,7 +113,7 @@ class BroadcastAuthController extends Controller
     {
         $user = $request->user();
         $socketId = $request->input('socket_id');
-        $sessionId = $request->session()->getId();
+        $sessionId = $this->resolveSessionId($request);
 
         $channelData = [
             'user_id' => $user?->id ?? 'guest_'.substr($sessionId, 0, 8),
