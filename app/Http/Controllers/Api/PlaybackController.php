@@ -78,7 +78,7 @@ class PlaybackController extends Controller
             'liveset_id' => $request->input('liveset_id'),
             'play_history_id' => $request->input('play_history_id'),
             'position' => $request->input('position'),
-            'user_id' => $request->user()?->id,
+            'user_id' => ($request->user('sanctum') ?? $request->user())?->id,
         ]);
 
         $validated = $request->validate([
@@ -93,7 +93,11 @@ class PlaybackController extends Controller
             'client_id' => ['nullable', 'string', 'max:64'],
         ]);
 
-        $user = $request->user();
+        // /api/playback/track has no auth:sanctum middleware (anonymous tracking
+        // is allowed). Default `web` guard misses mobile bearer requests; check
+        // sanctum first (covers bearer + stateful session), fall back to the
+        // default guard to be safe.
+        $user = $request->user('sanctum') ?? $request->user();
         $userId = $user?->id;
         $sessionId = $this->resolveSessionId($request);
 

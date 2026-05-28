@@ -18,7 +18,7 @@ class ListenAlongController extends Controller
      */
     public function sessions(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user('sanctum') ?? $request->user();
 
         $sessions = $this->listenAlongService->getActiveSessions(
             viewerUserId: $user?->id,
@@ -33,7 +33,7 @@ class ListenAlongController extends Controller
      */
     public function state(Request $request, string $channelToken): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user('sanctum') ?? $request->user();
 
         $sessions = $this->listenAlongService->getActiveSessions(
             viewerUserId: $user?->id,
@@ -63,7 +63,7 @@ class ListenAlongController extends Controller
             return response()->json(['message' => 'X-Client-ID header is required.'], 422);
         }
 
-        $user = $request->user();
+        $user = $request->user('sanctum') ?? $request->user();
 
         $member = $this->listenAlongService->joinRoom(
             channelToken: $channelToken,
