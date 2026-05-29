@@ -77,7 +77,8 @@ class AuthController extends Controller
             'device_name' => ['nullable', 'string', 'max:255'],
         ]);
 
-        if (! Auth::attempt([
+        $webGuard = Auth::guard('web');
+        if (! $webGuard->attempt([
             'email' => $validated['email'],
             'password' => $validated['password'],
         ])) {
@@ -89,7 +90,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = Auth::user();
+        $user = $webGuard->user();
         $deviceName = $validated['device_name'] ?? 'web';
         $token = $user->createToken($deviceName)->plainTextToken;
 

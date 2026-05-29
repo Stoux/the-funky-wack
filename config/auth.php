@@ -14,7 +14,12 @@ return [
     */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
+        // Sanctum's guard handles both stateful SPA sessions (via the
+        // EnsureFrontendRequestsAreStateful middleware called from bootstrap's
+        // statefulApi()) and Bearer tokens. Defaulting to it means
+        // $request->user() resolves the Bearer-token user on public API routes
+        // without each endpoint needing an explicit auth:sanctum wrapper.
+        'guard' => env('AUTH_GUARD', 'sanctum'),
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
@@ -38,6 +43,10 @@ return [
     'guards' => [
         'web' => [
             'driver' => 'session',
+            'provider' => 'users',
+        ],
+        'sanctum' => [
+            'driver' => 'sanctum',
             'provider' => 'users',
         ],
     ],

@@ -29,7 +29,7 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (Auth::guard('web')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
 
             // Set admin authentication timestamp for fresh-auth requirement
@@ -50,7 +50,7 @@ class LoginController extends Controller
      */
     public function logout(Request $request): RedirectResponse
     {
-        Auth::logout();
+        Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

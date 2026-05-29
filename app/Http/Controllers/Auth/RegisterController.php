@@ -65,7 +65,7 @@ class RegisterController extends Controller
         });
 
         // Log the user in
-        Auth::login($user);
+        Auth::guard('web')->login($user);
 
         return redirect()->route('user.profile');
     }
