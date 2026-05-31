@@ -95,13 +95,15 @@ Route::prefix('live')->group(function () {
         Route::get('/rooms/{channelToken}/state', [ListenAlongController::class, 'state']);
     });
 
-    Route::middleware('throttle:10,1')->group(function () {
-        Route::post('/rooms/{channelToken}/join', [ListenAlongController::class, 'join']);
-        Route::post('/rooms/{channelToken}/leave', [ListenAlongController::class, 'leave']);
-        Route::post('/rooms/{channelToken}/detach', [ListenAlongController::class, 'detach']);
-        Route::post('/rooms/{channelToken}/pause-sync', [ListenAlongController::class, 'pauseSync']);
-        Route::post('/rooms/{channelToken}/resume-sync', [ListenAlongController::class, 'resumeSync']);
-    });
+    // No throttle on listen-along state changes. The rows are tiny + scoped
+    // per client_id; the throttle solved no real abuse case but created a
+    // stuck-listener footgun (denied leave => isActiveListener stays true =>
+    // next play skips room creation).
+    Route::post('/rooms/{channelToken}/join', [ListenAlongController::class, 'join']);
+    Route::post('/rooms/{channelToken}/leave', [ListenAlongController::class, 'leave']);
+    Route::post('/rooms/{channelToken}/detach', [ListenAlongController::class, 'detach']);
+    Route::post('/rooms/{channelToken}/pause-sync', [ListenAlongController::class, 'pauseSync']);
+    Route::post('/rooms/{channelToken}/resume-sync', [ListenAlongController::class, 'resumeSync']);
 });
 
 // Protected routes (require authentication) - user settings
