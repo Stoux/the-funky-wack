@@ -172,15 +172,20 @@ class PlaybackEventSubscriber
         if ($playHistory) {
             // End the current segment on pause
             $this->playTrackingService->endSegment($playHistory, $position);
-            $playHistory->update(['ended_at_position' => $position]);
+            $playHistory->update([
+                'ended_at_position' => $position,
+                'paused_at' => now(),
+            ]);
         }
 
-        // Listen Along: broadcast pause to synced listeners
+        // Listen Along: broadcast pause to synced listeners + refresh Live page
         $room = $this->listenAlongService->findActiveRoomForSession($sessionId);
         if ($room) {
             $this->listenAlongService->broadcastHostAction($room, 'host.pause', [
                 'position' => $position,
             ]);
+
+            event(new \App\Events\LiveSessionsUpdated);
         }
 
         Log::debug('Playback: paused', [
@@ -203,15 +208,20 @@ class PlaybackEventSubscriber
         if ($playHistory) {
             // Start a new segment on resume
             $this->playTrackingService->startSegment($playHistory, $position);
-            $playHistory->update(['ended_at_position' => $position]);
+            $playHistory->update([
+                'ended_at_position' => $position,
+                'paused_at' => null,
+            ]);
         }
 
-        // Listen Along: broadcast resume to synced listeners
+        // Listen Along: broadcast resume to synced listeners + refresh Live page
         $room = $this->listenAlongService->findActiveRoomForSession($sessionId);
         if ($room) {
             $this->listenAlongService->broadcastHostAction($room, 'host.resume', [
                 'position' => $position,
             ]);
+
+            event(new \App\Events\LiveSessionsUpdated);
         }
 
         Log::debug('Playback: resumed', [
@@ -325,8 +335,24 @@ class PlaybackEventSubscriber
         $resumePosition = $playHistory->ended_at_position ?? $playHistory->started_at_position;
         $this->playTrackingService->startSegment($playHistory, $resumePosition);
 
+        // Listen Along: room may have been ended by stale cleanup while disconnected.
+        // Re-create one so the session reappears on the Live page.
+        $roomToken = null;
+        $clientId = $playHistory->client_id;
+        $isListener = $clientId && $this->listenAlongService->isActiveListener($clientId);
+        if (! $isListener) {
+            $existingRoom = $this->listenAlongService->findActiveRoomForSession($sessionId);
+            if ($existingRoom) {
+                $this->listenAlongService->updateHostPlayHistory($existingRoom, $playHistory);
+                $roomToken = $existingRoom->channel_token;
+            } else {
+                $newRoom = $this->listenAlongService->createRoom($playHistory);
+                $roomToken = $newRoom->channel_token;
+            }
+        }
+
         // Broadcast the session started event again
-        event(new PlaybackSessionStarted($playHistory, $sessionId));
+        event(new PlaybackSessionStarted($playHistory, $sessionId, $roomToken));
 
         return $playHistory;
     }

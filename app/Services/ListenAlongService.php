@@ -345,6 +345,7 @@ class ListenAlongService
                 'position' => $playHistory->ended_at_position ?? $playHistory->started_at_position ?? 0,
                 'position_updated_at' => $playHistory->updated_at->toISOString(),
                 'quality' => $playHistory->quality,
+                'is_paused' => $playHistory->paused_at !== null,
                 'listeners_count' => $room->listeners_count ?? 0,
             ];
         })->filter()->values()->toArray();

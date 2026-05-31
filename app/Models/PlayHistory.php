@@ -27,6 +27,7 @@ class PlayHistory extends Model
         'platform',
         'counted_as_play',
         'disconnected_at',
+        'paused_at',
         'stopped_at',
     ];
 
@@ -35,6 +36,7 @@ class PlayHistory extends Model
         return [
             'counted_as_play' => 'boolean',
             'disconnected_at' => 'datetime',
+            'paused_at' => 'datetime',
             'stopped_at' => 'datetime',
         ];
     }

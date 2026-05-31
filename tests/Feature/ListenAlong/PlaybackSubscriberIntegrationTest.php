@@ -160,6 +160,65 @@ test('handleSeek broadcasts host.seek to room', function () {
     });
 });
 
+test('handlePause sets paused_at on the play history and broadcasts LiveSessionsUpdated', function () {
+    Event::fake();
+
+    $playHistory = $this->subscriber->handleStart(
+        sessionId: $this->sessionId,
+        livesetId: $this->liveset->id,
+        position: 0,
+        quality: 'hq',
+        clientId: 'client-1',
+        userId: $this->user->id,
+    );
+
+    Event::fake();
+
+    $this->subscriber->handlePause(
+        sessionId: $this->sessionId,
+        playHistoryId: $playHistory->id,
+        position: 75,
+    );
+
+    $playHistory->refresh();
+    expect($playHistory->paused_at)->not->toBeNull()
+        ->and($playHistory->ended_at_position)->toBe(75);
+
+    Event::assertDispatched(LiveSessionsUpdated::class);
+});
+
+test('handleResume clears paused_at on the play history and broadcasts LiveSessionsUpdated', function () {
+    Event::fake();
+
+    $playHistory = $this->subscriber->handleStart(
+        sessionId: $this->sessionId,
+        livesetId: $this->liveset->id,
+        position: 0,
+        quality: 'hq',
+        clientId: 'client-1',
+        userId: $this->user->id,
+    );
+
+    $this->subscriber->handlePause(
+        sessionId: $this->sessionId,
+        playHistoryId: $playHistory->id,
+        position: 75,
+    );
+
+    Event::fake();
+
+    $this->subscriber->handleResume(
+        sessionId: $this->sessionId,
+        playHistoryId: $playHistory->id,
+        position: 75,
+    );
+
+    $playHistory->refresh();
+    expect($playHistory->paused_at)->toBeNull();
+
+    Event::assertDispatched(LiveSessionsUpdated::class);
+});
+
 test('handlePause broadcasts host.pause to room', function () {
     Event::fake();
 
@@ -354,6 +413,41 @@ test('track switch: stop then start keeps the same room', function () {
     $room->refresh();
     expect($room->ended_at)->toBeNull();
     expect($room->host->play_history_id)->toBe($newPlayHistory->id);
+});
+
+test('handleReconnect recreates the room when stale cleanup ended it during disconnect', function () {
+    Event::fake();
+
+    // Host starts playing — creates the initial room
+    $playHistory = $this->subscriber->handleStart(
+        sessionId: $this->sessionId,
+        livesetId: $this->liveset->id,
+        position: 0,
+        quality: 'hq',
+        clientId: 'client-1',
+        userId: $this->user->id,
+    );
+
+    $originalRoom = ListenRoom::whereNull('ended_at')->first();
+    expect($originalRoom)->not->toBeNull();
+
+    // Stale cleanup ends the room while the host is disconnected
+    app(\App\Services\ListenAlongService::class)->endRoom($originalRoom);
+    expect(ListenRoom::whereNull('ended_at')->count())->toBe(0);
+
+    // Mark the session as disconnected so reconnect can resume it
+    $playHistory->update(['disconnected_at' => now()->subSeconds(10)]);
+
+    // Host's connection comes back
+    $resumed = $this->subscriber->handleReconnect($this->sessionId);
+
+    expect($resumed)->not->toBeNull();
+
+    // A new room should exist for the resumed session
+    $newRoom = ListenRoom::whereNull('ended_at')->first();
+    expect($newRoom)->not->toBeNull()
+        ->and($newRoom->host)->not->toBeNull()
+        ->and($newRoom->host->play_history_id)->toBe($resumed->id);
 });
 
 test('handleStart skips room creation when client is an active listener', function () {
