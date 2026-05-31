@@ -102,8 +102,12 @@ class User extends Authenticatable
      * Get or create a device for this user.
      * Restores soft-deleted devices if they come back.
      */
-    public function getOrCreateDevice(string $clientId, ?string $userAgent = null): UserDevice
-    {
+    public function getOrCreateDevice(
+        string $clientId,
+        ?string $userAgent = null,
+        ?string $deviceName = null,
+        ?string $deviceType = null,
+    ): UserDevice {
         // Check for existing device (including soft-deleted)
         $device = $this->devices()->withTrashed()->where('client_id', $clientId)->first();
 
@@ -113,8 +117,18 @@ class User extends Authenticatable
                 $device->restore();
             }
 
-            // Update last seen
-            $device->update(['last_seen_at' => now()]);
+            // Refresh client-supplied fingerprint when the caller knows better
+            // than UA parsing (e.g. native app login sends Build.MODEL +
+            // FEATURE_AUTOMOTIVE/LEANBACK derived device_type). Skip when null
+            // so anonymous UA-parsed names aren't clobbered on every request.
+            $updates = ['last_seen_at' => now()];
+            if ($deviceName !== null && $device->device_name !== $deviceName) {
+                $updates['device_name'] = $deviceName;
+            }
+            if ($deviceType !== null && $device->device_type !== $deviceType) {
+                $updates['device_type'] = $deviceType;
+            }
+            $device->update($updates);
 
             return $device;
         }
@@ -122,8 +136,8 @@ class User extends Authenticatable
         // Create new device
         return $this->devices()->create([
             'client_id' => $clientId,
-            'device_type' => UserDevice::detectDeviceType($userAgent),
-            'device_name' => UserDevice::detectDeviceName($userAgent),
+            'device_type' => $deviceType ?? UserDevice::detectDeviceType($userAgent),
+            'device_name' => $deviceName ?? UserDevice::detectDeviceName($userAgent),
             'user_agent' => $userAgent,
             'last_seen_at' => now(),
         ]);

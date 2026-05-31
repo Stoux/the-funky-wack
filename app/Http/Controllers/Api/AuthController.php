@@ -75,6 +75,7 @@ class AuthController extends Controller
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
             'device_name' => ['nullable', 'string', 'max:255'],
+            'device_type' => ['nullable', 'string', 'in:mobile,tablet,tv,car,desktop,other'],
         ]);
 
         $webGuard = Auth::guard('web');
@@ -93,6 +94,19 @@ class AuthController extends Controller
         $user = $webGuard->user();
         $deviceName = $validated['device_name'] ?? 'web';
         $token = $user->createToken($deviceName)->plainTextToken;
+
+        // Capture the client-supplied device fingerprint so the device row gets
+        // a real name ("Google Pixel 8") + type instead of the UA-parsed fallback
+        // ("Android 35", "tablet").
+        $clientId = $request->header('X-Client-ID');
+        if ($clientId) {
+            $user->getOrCreateDevice(
+                clientId: $clientId,
+                userAgent: $request->userAgent(),
+                deviceName: $validated['device_name'] ?? null,
+                deviceType: $validated['device_type'] ?? null,
+            );
+        }
 
         return response()->json([
             'user' => $user,

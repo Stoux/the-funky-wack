@@ -136,11 +136,15 @@ class DeviceController extends Controller
     {
         $validated = $request->validate([
             'client_id' => ['required', 'string', 'max:64'],
+            'device_name' => ['nullable', 'string', 'max:255'],
+            'device_type' => ['nullable', 'string', 'in:mobile,tablet,tv,car,desktop,other'],
         ]);
 
         $device = $request->user()->getOrCreateDevice(
-            $validated['client_id'],
-            $request->userAgent()
+            clientId: $validated['client_id'],
+            userAgent: $request->userAgent(),
+            deviceName: $validated['device_name'] ?? null,
+            deviceType: $validated['device_type'] ?? null,
         );
 
         return response()->json([
