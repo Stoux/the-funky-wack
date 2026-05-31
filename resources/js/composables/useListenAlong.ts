@@ -20,6 +20,7 @@ export interface LiveSession {
     position: number;
     position_updated_at: string | null;
     quality: string | null;
+    is_paused: boolean;
     listeners_count: number;
 }
 
@@ -217,8 +218,9 @@ export function useListenAlong() {
     }
 
     function leaveRoomChannel(): void {
-        if (roomChannel && currentRoomToken.value) {
-            echoInstance.leave(`listen-along.${currentRoomToken.value}`);
+        const token = currentRoomToken.value ?? myRoomToken.value;
+        if (roomChannel && token) {
+            echoInstance.leave(`listen-along.${token}`);
             roomChannel = null;
         }
     }
@@ -387,6 +389,14 @@ export function useListenAlong() {
 
     function onHostStop(): void {
         console.log('[ListenAlong] Host stopped');
+
+        // If this is our own room ending (e.g., stale cleanup after disconnect),
+        // silently tear down host state — don't show a "host stopped" dialog about ourselves.
+        if (isHost.value) {
+            teardownHost();
+            return;
+        }
+
         hostStopCallback?.();
         resetListenerState();
     }
@@ -409,6 +419,17 @@ export function useListenAlong() {
 
     function onHostStopped(callback: () => void): void {
         hostStopCallback = callback;
+    }
+
+    /**
+     * Trigger the same "host paused" UI flow that a real host.pause event would.
+     * Used when joining a session that's already paused.
+     */
+    function notifyHostPausedOnJoin(): void {
+        if (!isListeningAlong.value) {
+            return;
+        }
+        pauseCallback?.();
     }
 
     return {
@@ -439,6 +460,7 @@ export function useListenAlong() {
         resumeSyncState,
         setupHost,
         teardownHost,
+        notifyHostPausedOnJoin,
 
         // Event handlers (for audio player integration)
         onSeek,

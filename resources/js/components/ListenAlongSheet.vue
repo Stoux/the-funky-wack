@@ -20,7 +20,7 @@ const props = defineProps<{
     session: LiveSession;
 }>();
 
-const { joinRoom } = useListenAlong();
+const { joinRoom, notifyHostPausedOnJoin } = useListenAlong();
 const { playLiveset } = useAudioPlayer();
 const { findLivesetById } = useEditions();
 
@@ -46,28 +46,42 @@ async function handleJoin(mode: 'synced' | 'independent') {
         const success = await joinRoom(props.session.channel_token, mode);
 
         if (success && props.session.liveset) {
-            // Fetch fresh state to get accurate position
+            // Fetch fresh state to get accurate position + paused flag
             let position = estimatedPosition();
+            let isPaused = props.session.is_paused;
             try {
                 const stateRes = await fetch(`/api/live/rooms/${props.session.channel_token}/state`, {
                     credentials: 'include',
                 });
                 if (stateRes.ok) {
                     const state = await stateRes.json();
+                    isPaused = state.is_paused ?? false;
                     const updatedAt = state.position_updated_at ? new Date(state.position_updated_at).getTime() : 0;
-                    const elapsed = updatedAt ? Math.max(0, (Date.now() - updatedAt) / 1000) : 0;
-                    position = Math.floor(state.position + elapsed);
+                    if (isPaused) {
+                        // Host is paused — use the exact stored position, don't extrapolate
+                        position = state.position;
+                    } else {
+                        const elapsed = updatedAt ? Math.max(0, (Date.now() - updatedAt) / 1000) : 0;
+                        position = Math.floor(state.position + elapsed);
+                    }
                 }
             } catch { /* fall back to estimated position */ }
 
             const result = findLivesetById(props.session.liveset.id);
             if (result) {
+                const startPaused = mode === 'synced' && isPaused;
                 playLiveset(
                     result.edition,
                     result.liveset,
                     props.session.quality as any,
-                    position
+                    position,
+                    startPaused
                 );
+
+                if (startPaused) {
+                    // Trigger the "host paused" dialog so the listener can choose to stay-in-sync or leave
+                    notifyHostPausedOnJoin();
+                }
             }
         }
 

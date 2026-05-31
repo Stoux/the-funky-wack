@@ -166,11 +166,15 @@ onMounted(() => {
         (audioElement.value as HTMLAudioElement).volume = volume.value;
     }
 
-    // Wire up host pause dialog for synced listeners
+    // Wire up host pause dialog for synced listeners — pause locally and prompt
     onListenAlongPause(() => {
-        if (isListeningAlong.value) {
-            showHostPauseDialog.value = true;
+        if (!isListeningAlong.value) {
+            return;
         }
+        if (playing.value) {
+            pause();
+        }
+        showHostPauseDialog.value = true;
     });
 
     // Wire up host stopped notification
@@ -185,6 +189,8 @@ onMounted(() => {
     });
 
     onListenAlongResume(() => {
+        // Host resumed — close the pause dialog if it's still up and resume playback
+        showHostPauseDialog.value = false;
         play();
     });
 
@@ -207,17 +213,6 @@ watch(volume, (v) => {
         (audioElement.value as HTMLAudioElement).volume = v;
     }
 });
-
-function handleHostPause(): void {
-    // Pause with host
-    if (playing.value) {
-        togglePlayPause();
-    }
-}
-
-function handleHostDetach(): void {
-    // Already detached by the dialog component
-}
 
 function handleSeekDesync(): void {
     detach();
@@ -342,11 +337,7 @@ function handleWaveformClick(): void {
         </div>
 
         <!-- Host pause dialog (for synced listeners) -->
-        <HostPauseDialog
-            v-model:open="showHostPauseDialog"
-            @pause="handleHostPause"
-            @detach="handleHostDetach"
-        />
+        <HostPauseDialog v-model:open="showHostPauseDialog" @leave="play" />
 
         <!-- Host stopped notification -->
         <HostStoppedDialog

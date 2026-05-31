@@ -47,6 +47,9 @@ let tickInterval: ReturnType<typeof setInterval> | null = null;
 
 function estimatedPosition(session: LiveSession): number {
     const base = session.position;
+    if (session.is_paused) {
+        return base;
+    }
     const updatedAt = session.position_updated_at ? new Date(session.position_updated_at).getTime() : 0;
     if (!updatedAt) return base;
 
@@ -115,14 +118,20 @@ onBeforeUnmount(() => {
                                 <Headphones class="h-5 w-5 text-primary" />
                             </div>
                             <span class="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                <template v-if="session.is_paused">
+                                    <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                                </template>
+                                <template v-else>
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                </template>
                             </span>
                         </div>
                         <div>
                             <p class="font-medium">
                                 {{ session.host.name }}
                                 <span v-if="isOwnSession(session)" class="text-xs text-primary ml-1">(You)</span>
+                                <span v-if="session.is_paused" class="text-xs text-amber-500 ml-1">(paused)</span>
                             </p>
                             <p class="text-sm text-muted-foreground" v-if="session.liveset">
                                 {{ session.liveset.title }} &bull; {{ session.liveset.artist_name }}

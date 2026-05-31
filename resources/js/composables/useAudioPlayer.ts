@@ -23,6 +23,10 @@ const generatePeaksIfMissing = ref(false);
 let isInitialQuality = true;
 let lastQuality: string | undefined = undefined;
 
+// When set to false, the next on('ready') will not auto-play.
+// Used to join a session where the host is paused.
+let autoplayOnReady = true;
+
 // Quality labels
 const qualityLabels: LivesetFilesByQuality = {
     lq: 'Low',
@@ -288,8 +292,14 @@ export function useAudioPlayer() {
                 startPlayback(currentLiveset.value.id, currentTime.value, quality.value);
             }
 
-            // Play at the configured time
-            surfer.play(currentTime.value);
+            if (autoplayOnReady) {
+                // Play at the configured time
+                surfer.play(currentTime.value);
+            } else {
+                // Joined a paused session - position the playhead but stay paused
+                surfer.setTime(currentTime.value);
+                autoplayOnReady = true;
+            }
 
             castMedia.withAudioElement(audioElement);
         });
@@ -348,7 +358,8 @@ export function useAudioPlayer() {
     /**
      * Play a liveset
      */
-    function playLiveset(edition: Edition, liveset: Liveset, qualityOverride?: LivesetQuality, atTime: number = 0) {
+    function playLiveset(edition: Edition, liveset: Liveset, qualityOverride?: LivesetQuality, atTime: number = 0, startPaused: boolean = false) {
+        autoplayOnReady = !startPaused;
         // If same liveset, just toggle play/pause
         if (currentEdition.value?.id === edition.id &&
             currentLiveset.value?.id === liveset.id &&
