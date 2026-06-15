@@ -28,7 +28,7 @@ class AdminLoggedIn
 
         // Require fresh authentication for admin access (not via remember token)
         // and within the admin auth window
-        if (Auth::viaRemember() || ! $this->hasRecentAuthentication($request)) {
+        if (Auth::guard('web')->viaRemember() || ! $this->hasRecentAuthentication($request)) {
             $request->session()->put('url.intended', $request->url());
 
             if ($request->expectsJson()) {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 beforeEach(function () {
     $this->admin = User::factory()->create(['is_admin' => true]);
@@ -21,6 +22,18 @@ describe('GET /admin/users', function () {
 
     it('redirects non-admin users to login', function () {
         $response = $this->actingAs($this->user)->get('/admin/users');
+
+        $response->assertRedirect('/login');
+    });
+
+    it('forces re-authentication when authenticated via remember token', function () {
+        $this->admin->forceFill(['remember_token' => 'remember-me-token'])->save();
+
+        $recaller = "{$this->admin->id}|remember-me-token|{$this->admin->password}";
+
+        $response = $this->withSession(['admin_authenticated_at' => now()])
+            ->withUnencryptedCookie(Auth::guard('web')->getRecallerName(), $recaller)
+            ->get('/admin/users');
 
         $response->assertRedirect('/login');
     });
