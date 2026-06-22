@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\AdminLoggedIn;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,7 +35,7 @@ class LoginController extends Controller
 
             // Set admin authentication timestamp for fresh-auth requirement
             if (Auth::user()->is_admin) {
-                $request->session()->put('admin_authenticated_at', now());
+                $request->session()->put(AdminLoggedIn::SESSION_KEY, now());
             }
 
             return redirect()->intended(route('home'));

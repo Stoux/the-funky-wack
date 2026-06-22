@@ -10,6 +10,11 @@ use Symfony\Component\HttpFoundation\Response;
 class AdminLoggedIn
 {
     /**
+     * Session key holding the timestamp of the last fresh admin authentication.
+     */
+    public const SESSION_KEY = 'admin_authenticated_at';
+
+    /**
      * Admin sessions require fresh authentication within this window.
      */
     protected const ADMIN_AUTH_WINDOW_MINUTES = 1440;
@@ -27,15 +32,18 @@ class AdminLoggedIn
         }
 
         // Require fresh authentication for admin access (not via remember token)
-        // and within the admin auth window
+        // and within the admin auth window.
         if (Auth::guard('web')->viaRemember() || ! $this->hasRecentAuthentication($request)) {
-            $request->session()->put('url.intended', $request->url());
-
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Re-authentication required'], 401);
             }
 
-            return redirect('/login')->with('message', 'Please log in again to access the admin area.');
+            // Drop the remember-based session so the guest-only /login page is
+            // reachable; logging back in restocks the fresh-auth timestamp.
+            Auth::guard('web')->logout();
+
+            return redirect()->guest('/login')
+                ->with('message', 'Please log in again to access the admin area.');
         }
 
         return $next($request);
@@ -46,12 +54,12 @@ class AdminLoggedIn
      */
     protected function hasRecentAuthentication(Request $request): bool
     {
-        $lastAuth = $request->session()->get('admin_authenticated_at');
+        $lastAuth = $request->session()->get(self::SESSION_KEY);
 
         if (! $lastAuth) {
             return false;
         }
 
-        return now()->diffInMinutes($lastAuth) < self::ADMIN_AUTH_WINDOW_MINUTES;
+        return now()->diffInMinutes($lastAuth, true) < self::ADMIN_AUTH_WINDOW_MINUTES;
     }
 }

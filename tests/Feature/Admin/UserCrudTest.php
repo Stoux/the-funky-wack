@@ -26,13 +26,22 @@ describe('GET /admin/users', function () {
         $response->assertRedirect('/login');
     });
 
-    it('forces re-authentication when authenticated via remember token', function () {
+    it('forces re-authentication and logs out when authenticated via remember token', function () {
         $this->admin->forceFill(['remember_token' => 'remember-me-token'])->save();
 
         $recaller = "{$this->admin->id}|remember-me-token|{$this->admin->password}";
 
         $response = $this->withSession(['admin_authenticated_at' => now()])
             ->withUnencryptedCookie(Auth::guard('web')->getRecallerName(), $recaller)
+            ->get('/admin/users');
+
+        $response->assertRedirect('/login');
+        expect(Auth::guard('web')->check())->toBeFalse();
+    });
+
+    it('forces re-authentication when the fresh-auth window has expired', function () {
+        $response = $this->actingAs($this->admin)
+            ->withSession(['admin_authenticated_at' => now()->subDays(2)])
             ->get('/admin/users');
 
         $response->assertRedirect('/login');

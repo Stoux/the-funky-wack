@@ -124,7 +124,6 @@ return [
     ],
 
     'tfw' => [
-        'super_secure_password' => env('TFW_SUPER_SECURE_PASSWORD', ''),
         'ffmepg' => env('TFW_FFMPEG_PATH', ''),
         'audiowaveform' => env('TFW_AUDIOWAVEFORM_PATH', ''),
     ],

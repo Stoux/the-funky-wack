@@ -4,7 +4,6 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\EditionController;
 use App\Http\Controllers\Admin\LivesetController;
 use App\Http\Controllers\Admin\LivesetFilesController;
-use App\Http\Controllers\Admin\LoginController as AdminLoginController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\UtilController;
 use App\Http\Controllers\Auth\LoginController;
@@ -45,10 +44,6 @@ Route::get('/playlists/{shareCode}/{slug?}', [UserController::class, 'playlist']
 
 // Legacy shared playlist URL redirect
 Route::get('/p/{code}', fn (string $code) => redirect()->route('playlist.show', ['shareCode' => $code]));
-
-// Admin login (separate from user login)
-Route::get('/admin/login', [AdminLoginController::class, 'index'])->name('admin.login');
-Route::post('/admin/login', [AdminLoginController::class, 'login'])->name('admin.login.post');
 
 Route::middleware('admin')->prefix('/admin')->group(function () {
 
