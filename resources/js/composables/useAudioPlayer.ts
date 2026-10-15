@@ -268,6 +268,17 @@ export function useAudioPlayer() {
             ]
         });
 
+        // TEMP: catch duplicate waveforms in the wild. WaveSurfer mounts as a shadow-root div in the container
+        const waveformCount = Array.from(waveformContainer.children).filter(child => child.shadowRoot).length;
+        if (waveformCount > 1) {
+            console.warn('[AudioPlayer] Duplicate waveforms detected', {
+                waveformCount,
+                livesetId: currentLiveset.value?.id,
+                source: initSource,
+                generation,
+            });
+        }
+
         surfer.on('click', () => {
             surfer.play();
         });
