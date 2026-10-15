@@ -140,7 +140,7 @@ async function handleResync(): Promise<void> {
                 if (state.liveset?.id && state.liveset.id !== currentLiveset.value?.id) {
                     const result = findLivesetById(state.liveset.id);
                     if (result) {
-                        playLiveset(result.edition, result.liveset, state.quality as any, position);
+                        playLiveset(result.edition, result.liveset, undefined, position);
                         return;
                     }
                 }
@@ -193,18 +193,18 @@ onMounted(() => {
         play();
     });
 
-    // Wire up host track change — load the new liveset
+    // Wire up host track change — load the new liveset. The listener keeps its own quality setting
     onListenAlongTrackChange((data) => {
         // Host restarted its session on the same set (e.g. session expiry). Only resync the
         // position, playLiveset would toggle playback for the liveset that's already loaded
-        if (data.liveset_id === currentLiveset.value?.id && (!data.quality || data.quality === quality.value)) {
+        if (data.liveset_id === currentLiveset.value?.id) {
             seek(data.position);
             return;
         }
 
         const result = findLivesetById(data.liveset_id);
         if (result) {
-            playLiveset(result.edition, result.liveset, data.quality as any, data.position);
+            playLiveset(result.edition, result.liveset, undefined, data.position);
         }
     });
 });

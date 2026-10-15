@@ -21,7 +21,7 @@ const props = defineProps<{
 }>();
 
 const { joinRoom, notifyHostPausedOnJoin } = useListenAlong();
-const { playLiveset } = useAudioPlayer();
+const { currentLiveset, playLiveset, seek, play, pause } = useAudioPlayer();
 const { findLivesetById } = useEditions();
 
 const joining = ref(false);
@@ -70,13 +70,18 @@ async function handleJoin(mode: 'synced' | 'independent') {
             const result = findLivesetById(props.session.liveset.id);
             if (result) {
                 const startPaused = mode === 'synced' && isPaused;
-                playLiveset(
-                    result.edition,
-                    result.liveset,
-                    props.session.quality as any,
-                    position,
-                    startPaused
-                );
+                if (result.liveset.id === currentLiveset.value?.id) {
+                    // Already loaded, playLiveset would toggle playback. Just resync
+                    seek(position);
+                    if (startPaused) {
+                        pause();
+                    } else {
+                        play();
+                    }
+                } else {
+                    // Listener keeps its own quality setting, the host's isn't applied
+                    playLiveset(result.edition, result.liveset, undefined, position, startPaused);
+                }
 
                 if (startPaused) {
                     // Trigger the "host paused" dialog so the listener can choose to stay-in-sync or leave
