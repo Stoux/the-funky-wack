@@ -1,8 +1,12 @@
 <?php
 
+use App\Events\CommentDeleted;
+use App\Events\CommentUpdated;
 use App\Models\Comment;
 use App\Models\Liveset;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
+use Inertia\Testing\AssertableInertia;
 
 beforeEach(function () {
     $this->admin = User::factory()->create();
@@ -52,5 +56,37 @@ describe('admin comment management', function () {
 
         $response->assertRedirect();
         expect(Comment::find($comment->id))->not->toBeNull();
+    });
+
+    it('paginates the comments page per 100', function () {
+        Comment::factory()->count(101)->create(['liveset_id' => $this->liveset->id]);
+
+        $response = $this->actingAs($this->admin)
+            ->withSession(['admin_authenticated_at' => now()])
+            ->get(route('admin.comments', ['page' => 2]));
+
+        $response->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Admin/Comments')
+            ->has('comments.data', 1)
+            ->where('comments.current_page', 2)
+            ->where('comments.last_page', 2)
+            ->where('comments.total', 101)
+        );
+    });
+
+    it('broadcasts deletes and restores to the public liveset channel', function () {
+        Event::fake([CommentDeleted::class, CommentUpdated::class]);
+        $comment = Comment::factory()->create(['liveset_id' => $this->liveset->id]);
+
+        $this->actingAs($this->admin)
+            ->withSession(['admin_authenticated_at' => now()])
+            ->delete(route('admin.comments.delete', $comment));
+        $this->actingAs($this->admin)
+            ->withSession(['admin_authenticated_at' => now()])
+            ->post(route('admin.comments.restore', $comment));
+
+        Event::assertDispatched(CommentDeleted::class, fn (CommentDeleted $event) => $event->comment->is($comment));
+        Event::assertDispatched(CommentUpdated::class, fn (CommentUpdated $event) => $event->comment->is($comment)
+            && $event->broadcastWith()['is_deleted'] === false);
     });
 });

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
@@ -18,7 +18,14 @@ interface CommentRow {
 }
 
 defineProps<{
-    comments: CommentRow[];
+    comments: {
+        data: CommentRow[];
+        current_page: number;
+        last_page: number;
+        total: number;
+        prev_page_url: string | null;
+        next_page_url: string | null;
+    };
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -44,6 +51,7 @@ const restoreComment = (id: number) => {
         <div class="flex flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-bold">Comments</h1>
+                <span class="text-sm text-muted-foreground">{{ comments.total }} total</span>
             </div>
 
             <div class="rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
@@ -61,7 +69,7 @@ const restoreComment = (id: number) => {
                     </thead>
                     <tbody>
                         <tr
-                            v-for="comment in comments"
+                            v-for="comment in comments.data"
                             :key="comment.id"
                             class="border-b border-sidebar-border/70 dark:border-sidebar-border"
                         >
@@ -96,11 +104,21 @@ const restoreComment = (id: number) => {
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="comments.length === 0">
+                        <tr v-if="comments.data.length === 0">
                             <td colspan="7" class="p-4 text-center">No comments found</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div v-if="comments.last_page > 1" class="flex items-center justify-between">
+                <Button variant="outline" size="sm" :disabled="!comments.prev_page_url" :as="comments.prev_page_url ? Link : 'button'" :href="comments.prev_page_url ?? undefined" preserve-scroll>
+                    Previous
+                </Button>
+                <span class="text-sm text-muted-foreground">Page {{ comments.current_page }} of {{ comments.last_page }}</span>
+                <Button variant="outline" size="sm" :disabled="!comments.next_page_url" :as="comments.next_page_url ? Link : 'button'" :href="comments.next_page_url ?? undefined" preserve-scroll>
+                    Next
+                </Button>
             </div>
         </div>
     </AppLayout>
