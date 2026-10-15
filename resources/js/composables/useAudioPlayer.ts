@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick, shallowRef, effectScope, type EffectScope } from 'vue';
+import { ref, computed, watch, nextTick, effectScope, type EffectScope } from 'vue';
 import WaveSurfer from 'wavesurfer.js';
 import HoverPlugin from 'wavesurfer.js/plugins/hover';
 import { Edition, Liveset, LivesetFilesByQuality, LivesetQuality } from '@/types';

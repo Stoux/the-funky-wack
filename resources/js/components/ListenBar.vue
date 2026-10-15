@@ -39,7 +39,6 @@ const {
     seek,
     setQuality,
     toggleGeneratePeaks,
-    initPlayer,
     playLiveset,
 } = useAudioPlayer();
 
