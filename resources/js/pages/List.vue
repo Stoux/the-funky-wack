@@ -12,6 +12,7 @@ import TrackSearch from "@/components/TrackSearch.vue";
 import {useTrackSearch} from "@/composables/useTrackSearch";
 import UserMenu from "@/components/UserMenu.vue";
 import {useFavorites} from "@/composables/useFavorites";
+import {useComments} from "@/composables/useComments";
 import {Button} from "@/components/ui/button";
 import {ListMusic, Radio} from "lucide-vue-next";
 import {useListenAlong} from "@/composables/useListenAlong";
@@ -19,11 +20,13 @@ import {useListenAlong} from "@/composables/useListenAlong";
 // Get editions from shared Inertia props
 const { editions, sortedEditions } = useEditions();
 
-// Initialize favorites from edition data
+// Initialize favorites + comment counts from edition data
 const { initializeFavorites } = useFavorites();
+const { initializeCommentCounts } = useComments();
 onMounted(() => {
     const allLivesets = editions.value.flatMap(edition => edition.livesets || []);
     initializeFavorites(allLivesets);
+    initializeCommentCounts(allLivesets);
 });
 
 // Use the shared audio player

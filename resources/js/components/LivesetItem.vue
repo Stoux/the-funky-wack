@@ -4,6 +4,7 @@ import {formatDuration} from "@/lib/utils";
 import {Pause, Play, MoreVertical, ListMusic, FileText, Share2, ListPlus, ListEnd, CheckCircle} from "lucide-vue-next";
 import {Button, type ButtonVariants} from "@/components/ui/button";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
+import CommentsSheet from "@/components/CommentsSheet.vue";
 import {Separator} from "@/components/ui/separator";
 import LivesetDescription from "@/components/LivesetDescription.vue";
 import {Edition, Liveset, LivesetQuality} from "@/types";
@@ -119,6 +120,7 @@ function handleAddToQueue() {
 
             <!-- Tracklist, Description & Favorite - always visible -->
             <LivesetTrackList ref="trackListRef" :liveset="liveset" :button-type="iconButtonType" />
+            <CommentsSheet :liveset="liveset" :button-type="iconButtonType" />
             <LivesetDescription ref="descriptionRef" :edition="edition" :liveset="liveset" :button-type="iconButtonType" />
             <FavoriteButton :liveset-id="liveset.id" :button-type="iconButtonType" />
 

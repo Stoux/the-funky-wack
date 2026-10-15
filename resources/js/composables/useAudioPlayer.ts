@@ -477,6 +477,19 @@ export function useAudioPlayer() {
         }
     }
 
+    /**
+     * Horizontal position (0-100%) of a timestamp within the visible waveform, null if unknown.
+     * The waveform always shows the full set for now, this is the place to account for zoom/scroll later.
+     */
+    function getVisiblePosition(seconds: number): number | null {
+        const duration = currentLiveset.value?.duration_in_seconds;
+        if (!duration) {
+            return null;
+        }
+
+        return (seconds / duration) * 100;
+    }
+
     return {
         // State
         currentLiveset,
@@ -504,6 +517,7 @@ export function useAudioPlayer() {
         seek,
         setQuality,
         toggleGeneratePeaks,
+        getVisiblePosition,
         initPlayer,
     };
 }

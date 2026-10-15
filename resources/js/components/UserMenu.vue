@@ -10,12 +10,32 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link } from '@inertiajs/vue3';
-import { User, Heart, History, ListMusic, Monitor, LogOut, LogIn, UserPlus, Shield } from 'lucide-vue-next';
+import { User, Heart, History, ListMusic, Monitor, LogOut, LogIn, UserPlus, Shield, Bell, MessageCircle } from 'lucide-vue-next';
+import { onMounted } from 'vue';
+import { useNotifications } from '@/composables/useNotifications';
 
 const { user, isAuthenticated, logout } = useAuth();
+const { unreadCount, loaded: notificationsLoaded, fetchNotifications } = useNotifications();
+
+onMounted(() => {
+    if (!notificationsLoaded.value) {
+        fetchNotifications();
+    }
+});
 </script>
 
 <template>
+    <div class="flex items-center gap-2">
+    <Button v-if="isAuthenticated" variant="outline" size="icon" class="rounded-full relative" as-child>
+        <Link :href="route('user.notifications')" title="Notifications">
+            <Bell class="h-4 w-4" />
+            <span v-if="unreadCount > 0"
+                  class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-4 text-center">
+                {{ unreadCount > 9 ? '9+' : unreadCount }}
+            </span>
+            <span class="sr-only">Notifications</span>
+        </Link>
+    </Button>
     <DropdownMenu>
         <DropdownMenuTrigger as-child>
             <Button variant="outline" size="icon" class="rounded-full">
@@ -42,6 +62,12 @@ const { user, isAuthenticated, logout } = useAuth();
                     <Link :href="route('user.history')" class="flex items-center cursor-pointer">
                         <History class="mr-2 h-4 w-4" />
                         History
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child>
+                    <Link :href="route('user.activity')" class="flex items-center cursor-pointer">
+                        <MessageCircle class="mr-2 h-4 w-4" />
+                        Activity
                     </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem as-child>
@@ -93,4 +119,5 @@ const { user, isAuthenticated, logout } = useAuth();
             </template>
         </DropdownMenuContent>
     </DropdownMenu>
+    </div>
 </template>

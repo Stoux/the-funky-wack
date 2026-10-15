@@ -89,6 +89,7 @@ export type Liveset = {
     files?: LivesetFilesByQuality,
     plays_count?: number,
     favorites_count?: number,
+    comments_count?: number,
     is_favorited?: boolean,
 }
 
@@ -199,4 +200,36 @@ export interface QueueItem {
     id: string;           // unique id for list key
     livesetId: number;
     source: QueueSource;
+}
+
+// Comments & notifications
+export interface Comment {
+    id: number;
+    user: { id: number; name: string } | null;
+    body: string | null;  // null when deleted
+    is_deleted: boolean;
+    timestamp_seconds: number;
+    parent_id?: number | null;
+    created_at: string;
+    updated_at: string;
+    is_own?: boolean;
+    replies?: Comment[];
+}
+
+export interface AppNotification {
+    id: string;
+    type: 'comment_reply' | 'new_comment' | null;
+    data: {
+        type: 'comment_reply' | 'new_comment';
+        comment_id: number;
+        parent_id?: number;
+        liveset_id: number;
+        liveset_title: string;
+        replier_name?: string;
+        commenter_name?: string;
+        body_preview: string;
+        timestamp_seconds: number;
+    };
+    read_at: string | null;
+    created_at: string;
 }

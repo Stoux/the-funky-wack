@@ -1,0 +1,199 @@
+<script setup lang="ts">
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetFooter,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
+import { Button, type ButtonVariants } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MessageCircle, ArrowUpDown } from 'lucide-vue-next';
+import { ref, watch, computed } from 'vue';
+import { useAuth } from '@/composables/useAuth';
+import { useComments } from '@/composables/useComments';
+import { useNowPlayingState } from '@/composables/useNowPlayingState';
+import { formatDuration } from '@/lib/utils';
+import CommentItem from '@/components/CommentItem.vue';
+import type { Liveset } from '@/types';
+
+const props = defineProps<{
+    liveset: Liveset;
+    buttonType?: ButtonVariants['variant'];
+}>();
+
+const { isAuthenticated } = useAuth();
+const { fetchComments, getComments, postComment, getCommentCount } = useComments();
+const { currentTime, currentLiveset } = useNowPlayingState();
+
+const isOpen = ref(false);
+const sortBy = ref<'timestamp' | 'date'>('timestamp');
+const loaded = ref(false);
+const newBody = ref('');
+const frozenTimestamp = ref<number | null>(null);
+const replyingTo = ref<number | null>(null);
+const posting = ref(false);
+
+const comments = computed(() => getComments(props.liveset.id));
+const commentCount = computed(() => getCommentCount(props.liveset.id));
+
+const currentTimestamp = computed(() => {
+    if (frozenTimestamp.value !== null) {
+        return frozenTimestamp.value;
+    }
+    if (currentLiveset.value?.id === props.liveset.id) {
+        return Math.floor(currentTime.value);
+    }
+    return 0;
+});
+
+watch(isOpen, async (open) => {
+    if (open && !loaded.value) {
+        await fetchComments(props.liveset.id, sortBy.value);
+        loaded.value = true;
+    }
+});
+
+async function toggleSort() {
+    sortBy.value = sortBy.value === 'timestamp' ? 'date' : 'timestamp';
+    await fetchComments(props.liveset.id, sortBy.value);
+}
+
+function handleReply(commentId: number) {
+    replyingTo.value = commentId;
+    freezeTimestamp();
+}
+
+function freezeTimestamp() {
+    if (frozenTimestamp.value === null) {
+        frozenTimestamp.value = currentTimestamp.value;
+    }
+}
+
+function unfreezeTimestamp() {
+    frozenTimestamp.value = null;
+}
+
+async function submitComment() {
+    if (!newBody.value.trim()) {
+        return;
+    }
+
+    posting.value = true;
+    const result = await postComment(
+        props.liveset.id,
+        newBody.value,
+        currentTimestamp.value,
+        replyingTo.value ?? undefined,
+    );
+
+    if (result) {
+        newBody.value = '';
+        replyingTo.value = null;
+        unfreezeTimestamp();
+    }
+    posting.value = false;
+}
+
+function handleSeekTo(seconds: number) {
+    if (currentLiveset.value?.id === props.liveset.id) {
+        currentTime.value = seconds;
+    }
+}
+
+function open() {
+    isOpen.value = true;
+}
+
+function openAtTimestamp(timestamp: number) {
+    frozenTimestamp.value = timestamp;
+    isOpen.value = true;
+}
+
+defineExpose({ open, openAtTimestamp });
+</script>
+
+<template>
+    <Sheet v-model:open="isOpen">
+        <SheetTrigger as-child>
+            <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full cursor-pointer" title="Comments">
+                <MessageCircle class="h-4 w-4" />
+            </Button>
+        </SheetTrigger>
+        <SheetContent>
+            <SheetHeader>
+                <SheetTitle>Comments</SheetTitle>
+                <SheetDescription>
+                    {{ liveset.title }} — {{ commentCount }} comment{{ commentCount !== 1 ? 's' : '' }}
+                </SheetDescription>
+            </SheetHeader>
+
+            <div class="flex items-center justify-end px-4">
+                <Button variant="ghost" size="sm" class="h-7 text-xs gap-1" @click="toggleSort">
+                    <ArrowUpDown class="h-3 w-3" />
+                    {{ sortBy === 'timestamp' ? 'By time' : 'By date' }}
+                </Button>
+            </div>
+
+            <ScrollArea class="h-full flex-1 overflow-y-auto">
+                <div class="flex flex-col px-4">
+                    <CommentItem
+                        v-for="comment in comments"
+                        :key="comment.id"
+                        :comment="comment"
+                        :liveset-id="liveset.id"
+                        @reply="handleReply"
+                        @seek-to="handleSeekTo"
+                    />
+
+                    <div v-if="loaded && comments.length === 0" class="py-8 text-center text-muted-foreground text-sm">
+                        No comments yet. Be the first!
+                    </div>
+
+                    <div v-if="!loaded" class="py-8 text-center text-muted-foreground text-sm">
+                        Loading...
+                    </div>
+                </div>
+            </ScrollArea>
+
+            <div v-if="isAuthenticated" class="border-t px-4 py-3">
+                <div v-if="replyingTo" class="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    Replying to comment
+                    <button class="text-primary cursor-pointer hover:underline" @click="replyingTo = null; unfreezeTimestamp()">
+                        Cancel
+                    </button>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <span class="font-mono">{{ formatDuration(currentTimestamp) }}</span>
+                </div>
+                <div class="flex gap-2">
+                    <textarea
+                        v-model="newBody"
+                        placeholder="Write a comment..."
+                        class="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                        rows="2"
+                        maxlength="2000"
+                        @focus="freezeTimestamp"
+                        @blur="!newBody.trim() && unfreezeTimestamp()"
+                    />
+                    <Button
+                        size="sm"
+                        class="self-end"
+                        :disabled="!newBody.trim() || posting"
+                        @click="submitComment"
+                    >
+                        Post
+                    </Button>
+                </div>
+            </div>
+
+            <SheetFooter v-if="!isAuthenticated">
+                <div class="text-sm text-muted-foreground text-center py-2">
+                    Log in to post comments.
+                </div>
+            </SheetFooter>
+        </SheetContent>
+    </Sheet>
+</template>

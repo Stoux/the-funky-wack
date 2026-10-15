@@ -14,6 +14,10 @@ import HostPauseDialog from "@/components/HostPauseDialog.vue";
 import HostStoppedDialog from "@/components/HostStoppedDialog.vue";
 import ListenerSeekDialog from "@/components/ListenerSeekDialog.vue";
 import ListenerResumeDialog from "@/components/ListenerResumeDialog.vue";
+import CommentsSheet from "@/components/CommentsSheet.vue";
+import CommentBubble from "@/components/CommentBubble.vue";
+import WaveformCommentMarkers from "@/components/WaveformCommentMarkers.vue";
+import {useComments} from "@/composables/useComments";
 import {useAudioPlayer} from "@/composables/useAudioPlayer";
 import {useListenAlong} from "@/composables/useListenAlong";
 import {useEditions} from "@/composables/useEditions";
@@ -63,6 +67,15 @@ const {
 
 const waveformContainer = useTemplateRef('waveform');
 const audioElement = useTemplateRef('audio');
+const commentsSheet = useTemplateRef('commentsSheet');
+
+// Comments for the playing set (waveform markers + bubble)
+const { ensureLoaded: ensureCommentsLoaded } = useComments();
+watch(() => currentLiveset.value?.id, (livesetId) => {
+    if (livesetId) {
+        ensureCommentsLoaded(livesetId);
+    }
+}, { immediate: true });
 
 // Volume control
 const VOLUME_STORAGE_KEY = 'tfw-volume';
@@ -244,6 +257,14 @@ function handleWaveformClick(): void {
                     class="absolute inset-0 z-10 cursor-pointer"
                     @click.stop.prevent="handleWaveformClick"
                 />
+                <template v-if="currentLiveset">
+                    <WaveformCommentMarkers
+                        :liveset-id="currentLiveset.id"
+                        :duration-seconds="currentLiveset.duration_in_seconds ?? 0"
+                        @open-comments="commentsSheet?.open()"
+                    />
+                    <CommentBubble :liveset-id="currentLiveset.id" :current-time="currentTime" />
+                </template>
             </div>
             <audio ref="audio" />
             <div class="flex justify-between text-xs text-muted-foreground mt-1">
@@ -321,6 +342,8 @@ function handleWaveformClick(): void {
                 <QueuePanel />
 
                 <LivesetTrackList :liveset="currentLiveset!" :current-time="currentTime" button-type="ghost" v-if="currentLiveset?.tracks?.length" />
+
+                <CommentsSheet ref="commentsSheet" :liveset="currentLiveset!" button-type="ghost" />
 
                 <LivesetDescription :edition="currentEdition!" :liveset="currentLiveset!" button-type="ghost" v-if="currentLiveset?.description" />
 
