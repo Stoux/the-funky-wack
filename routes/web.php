@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\EditionController;
 use App\Http\Controllers\Admin\LivesetController;
 use App\Http\Controllers\Admin\LivesetFilesController;
@@ -36,6 +37,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/favorites', [UserController::class, 'favorites'])->name('user.favorites');
     Route::get('/devices', [UserController::class, 'devices'])->name('user.devices');
     Route::get('/link', [UserController::class, 'linkDevice'])->name('user.link-device');
+    Route::get('/notifications', fn () => Inertia\Inertia::render('User/Notifications'))->name('user.notifications');
+    Route::get('/activity', fn () => Inertia\Inertia::render('User/Activity'))->name('user.activity');
 });
 
 // Playlists - public overview + individual playlist view
@@ -80,6 +83,10 @@ Route::middleware('admin')->prefix('/admin')->group(function () {
     Route::get('/users/{user}', [AdminUserController::class, 'viewUser'])->name('admin.users.view');
     Route::patch('/users/{user}', [AdminUserController::class, 'updateUser'])->name('admin.users.update');
     Route::delete('/users/{user}', [AdminUserController::class, 'deleteUser'])->name('admin.users.delete');
+
+    Route::get('/comments', [AdminCommentController::class, 'comments'])->name('admin.comments');
+    Route::delete('/comments/{comment}', [AdminCommentController::class, 'deleteComment'])->name('admin.comments.delete');
+    Route::post('/comments/{id}/restore', [AdminCommentController::class, 'restoreComment'])->name('admin.comments.restore');
 
     Route::post('/util/cue', [UtilController::class, 'parseCue'])->name('util.cue');
 

@@ -57,7 +57,7 @@ class EditionsDataService
             return [
                 ...$edition->toArray(),
                 'date' => $edition->date?->format('j M Y'),
-                'livesets' => $edition->livesets->sortBy('lineup_order')->map(function (Liveset $liveset) use ($timetablerService, $edition) {
+                'livesets' => $edition->livesets->loadCount('comments')->sortBy('lineup_order')->map(function (Liveset $liveset) use ($timetablerService, $edition) {
                     return [
                         ...$liveset->toArray(),
                         'started_at' => $liveset->started_at?->format('j M Y H:i'),
@@ -71,6 +71,7 @@ class EditionsDataService
                         'timeslot' => $this->getTimeslotFor($timetablerService, $edition, $liveset),
                         'plays_count' => $liveset->plays_count,
                         'favorites_count' => $liveset->favorites_count,
+                        'comments_count' => $liveset->comments_count,
                         'is_favorited' => false,
                     ];
                 })->values()->toArray(),

@@ -1,0 +1,172 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Events\CommentPosted;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCommentRequest;
+use App\Http\Requests\UpdateCommentRequest;
+use App\Models\Comment;
+use App\Models\Liveset;
+use App\Notifications\CommentReply;
+use App\Notifications\NewCommentOnLiveset;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
+
+class CommentController extends Controller
+{
+    public function index(Request $request, Liveset $liveset): JsonResponse
+    {
+        $sortBy = $request->query('sort') === 'date' ? 'created_at' : 'timestamp_seconds';
+        $userId = $request->user()?->id;
+
+        $comments = Comment::query()
+            ->withTrashed()
+            ->where('liveset_id', $liveset->id)
+            ->whereNull('parent_id')
+            ->with(['user:id,name', 'replies' => function ($query) {
+                $query->withTrashed()->with('user:id,name')->orderBy('created_at');
+            }])
+            ->orderBy($sortBy)
+            ->get()
+            ->filter(function (Comment $comment) {
+                // Exclude deleted comments that have no replies
+                if ($comment->trashed() && $comment->replies->isEmpty()) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->values()
+            ->map(fn (Comment $comment) => $this->formatComment($comment, $userId));
+
+        return response()->json(['comments' => $comments]);
+    }
+
+    public function store(StoreCommentRequest $request, Liveset $liveset): JsonResponse
+    {
+        $parent = $request->parent_id ? Comment::find($request->parent_id) : null;
+
+        $comment = Comment::create([
+            'liveset_id' => $liveset->id,
+            'user_id' => $request->user()->id,
+            'parent_id' => $parent?->id,
+            'body' => $request->body,
+            'timestamp_seconds' => $parent ? $parent->timestamp_seconds : $request->timestamp_seconds,
+        ]);
+
+        $comment->load('user:id,name');
+
+        // Broadcast to liveset channel
+        CommentPosted::dispatch($comment);
+
+        // Send notifications
+        $this->sendNotifications($comment, $liveset);
+
+        return response()->json([
+            'comment' => $this->formatComment($comment, $request->user()->id),
+        ], 201);
+    }
+
+    public function update(UpdateCommentRequest $request, Comment $comment): JsonResponse
+    {
+        $comment->update(['body' => $request->body]);
+        $comment->load('user:id,name');
+
+        return response()->json([
+            'comment' => $this->formatComment($comment, $request->user()->id),
+        ]);
+    }
+
+    public function destroy(Request $request, Comment $comment): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->id !== $comment->user_id && ! $user->is_admin) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $comment->delete();
+
+        return response()->json(['message' => 'Comment deleted.']);
+    }
+
+    public function recent(Request $request): JsonResponse
+    {
+        $comments = Comment::query()
+            ->with(['user:id,name', 'liveset:id,title,artist_name'])
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (Comment $comment) => [
+                'id' => $comment->id,
+                'user' => $comment->user ? ['id' => $comment->user->id, 'name' => $comment->user->name] : null,
+                'liveset' => $comment->liveset ? [
+                    'id' => $comment->liveset->id,
+                    'title' => $comment->liveset->title,
+                    'artist_name' => $comment->liveset->artist_name,
+                ] : null,
+                'body' => $comment->body,
+                'timestamp_seconds' => $comment->timestamp_seconds,
+                'created_at' => $comment->created_at->toIso8601String(),
+            ]);
+
+        return response()->json(['comments' => $comments]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function formatComment(Comment $comment, ?int $currentUserId): array
+    {
+        $data = [
+            'id' => $comment->id,
+            'user' => $comment->user ? ['id' => $comment->user->id, 'name' => $comment->user->name] : null,
+            'body' => $comment->trashed() ? null : $comment->body,
+            'is_deleted' => $comment->trashed(),
+            'timestamp_seconds' => $comment->timestamp_seconds,
+            'created_at' => $comment->created_at->toIso8601String(),
+            'updated_at' => $comment->updated_at->toIso8601String(),
+            'is_own' => $currentUserId !== null && $comment->user_id === $currentUserId,
+        ];
+
+        if ($comment->relationLoaded('replies')) {
+            $data['replies'] = $comment->replies->map(fn (Comment $reply) => $this->formatComment($reply, $currentUserId))->values()->toArray();
+        }
+
+        return $data;
+    }
+
+    protected function sendNotifications(Comment $comment, Liveset $liveset): void
+    {
+        $commenterId = $comment->user_id;
+
+        // If reply: notify parent comment's author
+        if ($comment->parent_id) {
+            $parent = Comment::find($comment->parent_id);
+            if ($parent && $parent->user_id !== $commenterId) {
+                $parent->user->notify(new CommentReply($comment, $liveset));
+            }
+        }
+
+        // Notify all other users who have commented on this liveset
+        $otherCommenters = \App\Models\User::whereIn(
+            'id',
+            Comment::where('liveset_id', $liveset->id)
+                ->where('user_id', '!=', $commenterId)
+                ->distinct()
+                ->pluck('user_id')
+        )->get();
+
+        // Don't send duplicate reply notification
+        if ($comment->parent_id) {
+            $parentUserId = Comment::find($comment->parent_id)?->user_id;
+            $otherCommenters = $otherCommenters->reject(fn ($user) => $user->id === $parentUserId);
+        }
+
+        if ($otherCommenters->isNotEmpty()) {
+            Notification::send($otherCommenters, new NewCommentOnLiveset($comment, $liveset));
+        }
+    }
+}

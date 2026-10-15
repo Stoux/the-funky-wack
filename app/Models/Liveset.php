@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\EditionsDataService;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
 
 class Liveset extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected static function booted(): void
     {
@@ -53,6 +54,11 @@ class Liveset extends Model
     public function files(): HasMany
     {
         return $this->hasMany(LivesetFile::class);
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
     }
 
     public function audioWaveformUrl(): ?string

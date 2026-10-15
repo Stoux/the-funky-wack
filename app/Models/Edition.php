@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\EditionsDataService;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\URL;
 
 class Edition extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected static function booted(): void
     {

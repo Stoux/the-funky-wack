@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\DeviceCodeController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\InviteController;
 use App\Http\Controllers\Api\ListenAlongController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\QueueHealthController;
@@ -50,6 +52,10 @@ Route::prefix('playback')->middleware('throttle:30,1')->group(function () {
 Route::get('/playlists', [PlaylistController::class, 'index']);
 Route::get('/playlists/{shareCode}', [PlaylistController::class, 'show']);
 
+// Public comment endpoints
+Route::get('/livesets/{liveset}/comments', [CommentController::class, 'index']);
+Route::get('/comments/recent', [CommentController::class, 'recent']);
+
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
     // Invite codes
@@ -86,6 +92,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/playlists/{shareCode}/items', [PlaylistController::class, 'reorderItems']);
     Route::delete('/playlists/{shareCode}/items/{liveset}', [PlaylistController::class, 'removeItem']);
     Route::post('/playlists/{shareCode}/regenerate-code', [PlaylistController::class, 'regenerateCode']);
+
+    // Comments
+    Route::middleware('throttle:10,1')->post('/livesets/{liveset}/comments', [CommentController::class, 'store']);
+    Route::put('/comments/{comment}', [CommentController::class, 'update']);
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
 });
 
 // Listen Along - public endpoints
