@@ -142,4 +142,12 @@ class User extends Authenticatable
             'last_seen_at' => now(),
         ]);
     }
+
+    /**
+     * Broadcast notifications on the existing private user channel (see routes/channels.php).
+     */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'user.'.$this->id;
+    }
 }

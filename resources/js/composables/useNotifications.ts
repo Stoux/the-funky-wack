@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { echo } from '@laravel/echo-vue';
 import { useAuth } from './useAuth';
 import type { AppNotification } from '@/types';
 
@@ -6,8 +7,38 @@ const notifications = ref<AppNotification[]>([]);
 const unreadCount = ref(0);
 const loaded = ref(false);
 
+// User whose private channel we're listening on for live notifications
+let subscribedUserId: number | null = null;
+
 export function useNotifications() {
-    const { isAuthenticated } = useAuth();
+    const { user, isAuthenticated } = useAuth();
+
+    /**
+     * Listen for new notifications on the private user channel (once per user).
+     */
+    function subscribe(): void {
+        const userId = user.value?.id;
+        if (!userId || subscribedUserId === userId) {
+            return;
+        }
+
+        if (subscribedUserId !== null) {
+            echo().leave(`user.${subscribedUserId}`);
+        }
+        subscribedUserId = userId;
+
+        echo().private(`user.${userId}`).notification((payload: AppNotification['data'] & { id: string }) => {
+            const { id, ...data } = payload;
+            notifications.value.unshift({
+                id,
+                type: data.type,
+                data,
+                read_at: null,
+                created_at: new Date().toISOString(),
+            });
+            unreadCount.value++;
+        });
+    }
 
     async function fetchNotifications(): Promise<void> {
         if (!isAuthenticated.value) {
@@ -89,6 +120,7 @@ export function useNotifications() {
         notifications,
         unreadCount,
         loaded,
+        subscribe,
         fetchNotifications,
         markAsRead,
         markAllAsRead,

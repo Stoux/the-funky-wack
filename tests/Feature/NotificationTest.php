@@ -6,6 +6,7 @@ use App\Models\Liveset;
 use App\Models\User;
 use App\Notifications\CommentReply;
 use App\Notifications\NewCommentOnLiveset;
+use Illuminate\Notifications\Events\BroadcastNotificationCreated;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 
@@ -130,4 +131,25 @@ describe('PUT /api/notifications/read-all', function () {
         $response->assertOk();
         expect($this->user->unreadNotifications()->count())->toBe(0);
     });
+});
+
+describe('notification broadcasting', function () {
+    it('broadcasts on the private user channel with the same type as the stored data', function (string $notificationClass, string $type) {
+        Event::fake([BroadcastNotificationCreated::class]);
+        $comment = Comment::factory()->create(['liveset_id' => $this->liveset->id]);
+
+        $this->user->notify(new $notificationClass($comment, $this->liveset));
+
+        Event::assertDispatched(BroadcastNotificationCreated::class, function (BroadcastNotificationCreated $event) use ($type) {
+            $channels = collect($event->broadcastOn())->map(fn ($channel) => $channel->name);
+
+            return $channels->contains("private-user.{$this->user->id}")
+                && $event->broadcastWith()['type'] === $type
+                && $event->broadcastWith()['liveset_id'] === $this->liveset->id;
+        });
+        expect($this->user->notifications()->first()->data['type'])->toBe($type);
+    })->with([
+        'reply' => [CommentReply::class, 'comment_reply'],
+        'new comment' => [NewCommentOnLiveset::class, 'new_comment'],
+    ]);
 });

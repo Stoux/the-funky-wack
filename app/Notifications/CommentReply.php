@@ -19,7 +19,15 @@ class CommentReply extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
+    }
+
+    /**
+     * Keeps the broadcast payload's `type` the same as the stored data's `type`.
+     */
+    public function broadcastType(): string
+    {
+        return 'comment_reply';
     }
 
     /**

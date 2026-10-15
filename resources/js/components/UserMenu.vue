@@ -15,12 +15,13 @@ import { onMounted } from 'vue';
 import { useNotifications } from '@/composables/useNotifications';
 
 const { user, isAuthenticated, logout } = useAuth();
-const { unreadCount, loaded: notificationsLoaded, fetchNotifications } = useNotifications();
+const { unreadCount, loaded: notificationsLoaded, fetchNotifications, subscribe: subscribeToNotifications } = useNotifications();
 
 onMounted(() => {
     if (!notificationsLoaded.value) {
         fetchNotifications();
     }
+    subscribeToNotifications();
 });
 </script>
 
