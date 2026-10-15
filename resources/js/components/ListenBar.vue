@@ -196,6 +196,13 @@ onMounted(() => {
 
     // Wire up host track change — load the new liveset
     onListenAlongTrackChange((data) => {
+        // Host restarted its session on the same set (e.g. session expiry). Only resync the
+        // position, playLiveset would toggle playback for the liveset that's already loaded
+        if (data.liveset_id === currentLiveset.value?.id && (!data.quality || data.quality === quality.value)) {
+            seek(data.position);
+            return;
+        }
+
         const result = findLivesetById(data.liveset_id);
         if (result) {
             playLiveset(result.edition, result.liveset, data.quality as any, data.position);
