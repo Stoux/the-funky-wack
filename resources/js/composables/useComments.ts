@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { effectScope, ref, watch } from 'vue';
 import { useAuth } from './useAuth';
 import type { Comment } from '@/types';
 
@@ -6,8 +6,20 @@ import type { Comment } from '@/types';
 const commentsByLiveset = ref<Record<number, Comment[]>>({});
 const commentCounts = ref<Record<number, number>>({});
 
+let hasUserWatcher = false;
+
 export function useComments() {
-    const { isAuthenticated } = useAuth();
+    const { user, isAuthenticated } = useAuth();
+
+    // Comments carry per-user flags (is_own), so refetch the loaded ones after login/logout
+    if (!hasUserWatcher) {
+        hasUserWatcher = true;
+        effectScope(true).run(() => watch(() => user.value?.id, () => {
+            const loadedLivesetIds = Object.keys(commentsByLiveset.value).map(Number);
+            commentsByLiveset.value = {};
+            loadedLivesetIds.forEach(livesetId => fetchComments(livesetId));
+        }));
+    }
 
     function initializeCommentCounts(livesets: Array<{ id: number; comments_count?: number }>) {
         for (const liveset of livesets) {

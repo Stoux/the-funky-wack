@@ -97,7 +97,9 @@ async function toggleSort() {
 
 function handleReply(commentId: number) {
     replyingTo.value = commentId;
-    freezeTimestamp();
+    // Replies are stored at the parent's timestamp, show that instead of the playhead
+    const parent = comments.value.find(comment => comment.id === commentId);
+    frozenTimestamp.value = parent?.timestamp_seconds ?? currentTimestamp.value;
 }
 
 function freezeTimestamp() {

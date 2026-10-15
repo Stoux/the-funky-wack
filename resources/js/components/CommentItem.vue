@@ -122,7 +122,7 @@ async function handleDelete() {
                         </button>
                     </div>
 
-                    <div class="flex items-center gap-2 mt-1" v-if="!isReply || comment.is_own">
+                    <div class="flex items-center gap-2 mt-1" v-if="!isReply || comment.is_own || user?.is_admin">
                         <button
                             v-if="!isReply"
                             class="text-xs text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-0.5"

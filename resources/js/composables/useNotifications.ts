@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { effectScope, ref, watch } from 'vue';
 import { echo } from '@laravel/echo-vue';
 import { useAuth } from './useAuth';
 import type { AppNotification } from '@/types';
@@ -9,9 +9,29 @@ const loaded = ref(false);
 
 // User whose private channel we're listening on for live notifications
 let subscribedUserId: number | null = null;
+let hasUserWatcher = false;
 
 export function useNotifications() {
     const { user, isAuthenticated } = useAuth();
+
+    // Login/logout happens without a full reload, drop the previous user's notifications + channel
+    if (!hasUserWatcher) {
+        hasUserWatcher = true;
+        effectScope(true).run(() => watch(() => user.value?.id, (userId) => {
+            if (subscribedUserId !== null) {
+                echo().leave(`user.${subscribedUserId}`);
+                subscribedUserId = null;
+            }
+            notifications.value = [];
+            unreadCount.value = 0;
+            loaded.value = false;
+
+            if (userId) {
+                fetchNotifications();
+                subscribe();
+            }
+        }));
+    }
 
     /**
      * Listen for new notifications on the private user channel (once per user).
@@ -20,10 +40,6 @@ export function useNotifications() {
         const userId = user.value?.id;
         if (!userId || subscribedUserId === userId) {
             return;
-        }
-
-        if (subscribedUserId !== null) {
-            echo().leave(`user.${subscribedUserId}`);
         }
         subscribedUserId = userId;
 
