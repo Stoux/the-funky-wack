@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick, shallowRef } from 'vue';
+import { ref, computed, watch, nextTick, shallowRef, effectScope, type EffectScope } from 'vue';
 import WaveSurfer from 'wavesurfer.js';
 import HoverPlugin from 'wavesurfer.js/plugins/hover';
 import { Edition, Liveset, LivesetFilesByQuality, LivesetQuality } from '@/types';
@@ -16,6 +16,13 @@ let waveformContainer: HTMLElement | null = null;
 
 const isInitialized = ref(false);
 const loadingSource = ref<string | undefined>(undefined);
+
+// Bumped on every (re)init and unmount. An init that awaited and finds a newer
+// generation bails, so overlapping inits can never leave an orphaned WaveSurfer behind.
+let initGeneration = 0;
+
+// Player watchers are registered once, not per component calling useAudioPlayer()
+let watchersScope: EffectScope | undefined = undefined;
 const hasPeaks = ref<boolean | undefined>(undefined);
 const generatePeaksIfMissing = ref(false);
 
@@ -72,49 +79,54 @@ export function useAudioPlayer() {
         return currentLiveset.value?.files?.[quality.value] ?? undefined;
     });
 
-    // Watch for quality changes and sync to server
-    watch(quality, (newQuality) => {
-        if (isInitialQuality || !lastQuality || newQuality === lastQuality) {
-            lastQuality = newQuality;
-            return;
-        }
+    if (!watchersScope) {
+        watchersScope = effectScope(true);
+        watchersScope.run(() => {
+            // Watch for quality changes and sync to server
+            watch(quality, (newQuality) => {
+                if (isInitialQuality || !lastQuality || newQuality === lastQuality) {
+                    lastQuality = newQuality;
+                    return;
+                }
 
-        lastQuality = newQuality;
-        syncChangeQuality(newQuality);
-    });
-
-    // Watch source changes to reinitialize player
-    watch(source, () => {
-        if (isInitialized.value && waveformContainer && audioElement) {
-            initPlayer();
-        }
-    });
-
-    // Watch playing state to control WaveSurfer
-    watch(playing, shouldBePlaying => {
-        if (!waveInstance || loading.value || shouldBePlaying === waveInstance.isPlaying()) {
-            return;
-        }
-
-        if (shouldBePlaying) {
-            waveInstance.play()?.catch((e: Error) => {
-                if (e.name !== 'AbortError') throw e;
+                lastQuality = newQuality;
+                syncChangeQuality(newQuality);
             });
-        } else {
-            waveInstance.pause();
-        }
-    });
 
-    // Watch currentTime for external seeks (e.g., from tracklist click)
-    watch(currentTime, shouldBeAtTime => {
-        if (!waveInstance || loading.value || Math.abs(waveInstance.getCurrentTime() - shouldBeAtTime) <= 2) {
-            return;
-        }
+            // Watch source changes to reinitialize player
+            watch(source, () => {
+                if (isInitialized.value && waveformContainer && audioElement) {
+                    initPlayer();
+                }
+            });
 
-        waveInstance.play(shouldBeAtTime)?.catch((e: Error) => {
-            if (e.name !== 'AbortError') throw e;
+            // Watch playing state to control WaveSurfer
+            watch(playing, shouldBePlaying => {
+                if (!waveInstance || loading.value || shouldBePlaying === waveInstance.isPlaying()) {
+                    return;
+                }
+
+                if (shouldBePlaying) {
+                    waveInstance.play()?.catch((e: Error) => {
+                        if (e.name !== 'AbortError') throw e;
+                    });
+                } else {
+                    waveInstance.pause();
+                }
+            });
+
+            // Watch currentTime for external seeks (e.g., from tracklist click)
+            watch(currentTime, shouldBeAtTime => {
+                if (!waveInstance || loading.value || Math.abs(waveInstance.getCurrentTime() - shouldBeAtTime) <= 2) {
+                    return;
+                }
+
+                waveInstance.play(shouldBeAtTime)?.catch((e: Error) => {
+                    if (e.name !== 'AbortError') throw e;
+                });
+            });
         });
-    });
+    }
 
     function checkAvailableQuality() {
         if (source.value) {
@@ -136,7 +148,7 @@ export function useAudioPlayer() {
      * Initialize or reinitialize the WaveSurfer player
      * Must be called after the DOM elements are available
      */
-    async function initPlayer() {
+    async function initPlayer(force: boolean = false) {
         if (!waveformContainer || !audioElement) {
             console.warn('[AudioPlayer] Cannot init player - DOM elements not available');
             return;
@@ -147,18 +159,20 @@ export function useAudioPlayer() {
             return;
         }
 
-        // Guard against concurrent calls — set immediately before any async work
-        if (source.value === loadingSource.value) {
+        // Guard against concurrent calls for the same source, set immediately before any async work
+        if (!force && source.value === loadingSource.value) {
             return;
         }
-        loadingSource.value = source.value;
+        const initSource = loadingSource.value = source.value;
+        const generation = ++initGeneration;
 
         // End current playback session FIRST
         await endPlayback();
+        if (generation !== initGeneration) {
+            return;
+        }
 
-        // Destroy the old instance
-        waveInstance?.destroy();
-        waveInstance = undefined;
+        destroyWaveInstance();
 
         playing.value = false;
         finished.value = false;
@@ -174,7 +188,6 @@ export function useAudioPlayer() {
         hasPeaks.value = undefined;
         let peaks: number[][] | undefined = generatePeaksIfMissing.value ? undefined : [[]];
         if (currentLiveset.value?.audio_waveform_url) {
-            const peaksForSource = source.value;
             try {
                 const peakData: { data: number[][] } = await fetch(currentLiveset.value.audio_waveform_url).then(response => response.json());
                 peaks = peakData.data;
@@ -183,8 +196,8 @@ export function useAudioPlayer() {
                 console.log('[AudioPlayer] Failed to load waveform peaks', e);
             }
 
-            if (peaksForSource !== source.value) {
-                // Source changed! Abort loading
+            if (generation !== initGeneration || initSource !== source.value) {
+                // Superseded by a newer init, source changed or unmounted. Abort loading
                 return;
             }
         }
@@ -209,7 +222,7 @@ export function useAudioPlayer() {
             autoCenter: false,
             minPxPerSec: 1,
             peaks: peaks,
-            url: source.value,
+            url: initSource,
             media: audioElement,
             plugins: [
                 HoverPlugin.create({
@@ -347,12 +360,26 @@ export function useAudioPlayer() {
         if (waveInstance) {
             // Detach audio element before destroying WaveSurfer so it keeps playing
             waveInstance.setOptions({ media: undefined });
-            waveInstance.destroy();
-            waveInstance = undefined;
         }
+        destroyWaveInstance();
+
+        // Cancel any in-flight init and allow the next mount to init the same source again
+        initGeneration++;
+        loadingSource.value = undefined;
+
         waveformContainer = null;
         isInitialized.value = false;
         // Note: audioElement is kept alive at module level, audio continues
+    }
+
+    /**
+     * Destroy the current WaveSurfer instance and drop its listeners,
+     * so a load still in flight can't fire our ready/finish handlers afterwards
+     */
+    function destroyWaveInstance() {
+        waveInstance?.destroy();
+        waveInstance?.unAll();
+        waveInstance = undefined;
     }
 
     /**
@@ -429,7 +456,7 @@ export function useAudioPlayer() {
     function toggleGeneratePeaks() {
         generatePeaksIfMissing.value = !generatePeaksIfMissing.value;
         if (isInitialized.value) {
-            initPlayer();
+            initPlayer(true);
         }
     }
 
