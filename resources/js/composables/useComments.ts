@@ -98,12 +98,8 @@ export function useComments() {
 
             if (response.ok) {
                 const data = await response.json();
-                const comment: Comment = { ...data.comment, parent_id: parentId ?? null };
-
-                if (addCommentToState(livesetId, comment)) {
-                    commentCounts.value[livesetId] = (commentCounts.value[livesetId] ?? 0) + 1;
-                }
-
+                const comment: Comment = data.comment;
+                addComment(livesetId, comment);
                 return comment;
             }
         } catch (error) {
@@ -150,9 +146,7 @@ export function useComments() {
             });
 
             if (response.ok) {
-                if (markDeletedInState(livesetId, commentId)) {
-                    commentCounts.value[livesetId] = Math.max(0, (commentCounts.value[livesetId] ?? 0) - 1);
-                }
+                removeComment(livesetId, commentId);
                 return true;
             }
         } catch (error) {
@@ -161,77 +155,104 @@ export function useComments() {
         return false;
     }
 
+    function bumpCount(livesetId: number, delta: number) {
+        commentCounts.value[livesetId] = Math.max(0, (commentCounts.value[livesetId] ?? 0) + delta);
+    }
+
+    function findComment(livesetId: number, commentId: number): Comment | undefined {
+        for (const comment of commentsByLiveset.value[livesetId] ?? []) {
+            if (comment.id === commentId) {
+                return comment;
+            }
+            const reply = comment.replies?.find(r => r.id === commentId);
+            if (reply) {
+                return reply;
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * Broadcast payloads carry no per-user is_own, derive it
+     */
+    function withOwnership(comment: Comment): Comment {
+        return { ...comment, is_own: !!user.value && comment.user?.id === user.value.id };
+    }
+
     function updateCommentInState(livesetId: number, updated: Comment) {
-        const comments = commentsByLiveset.value[livesetId] ?? [];
-        for (let i = 0; i < comments.length; i++) {
-            if (comments[i].id === updated.id) {
-                comments[i] = { ...comments[i], ...updated };
-                return;
-            }
-            if (comments[i].replies) {
-                for (let j = 0; j < comments[i].replies!.length; j++) {
-                    if (comments[i].replies![j].id === updated.id) {
-                        comments[i].replies![j] = { ...comments[i].replies![j], ...updated };
-                        return;
-                    }
-                }
-            }
+        const existing = findComment(livesetId, updated.id);
+        if (existing) {
+            Object.assign(existing, updated);
         }
     }
 
     /**
-     * Add a comment to the state unless it's already there (own post, or the same event twice).
-     * Comments for a liveset that isn't loaded yet only bump the count, a partial list would block ensureLoaded.
+     * Add a comment and bump the count, unless it's already there (own post, or the same event twice).
+     * For a liveset that isn't loaded yet only the count changes, a partial list would block ensureLoaded.
      */
-    function addCommentToState(livesetId: number, comment: Comment): boolean {
+    function addComment(livesetId: number, comment: Comment): boolean {
         const comments = commentsByLiveset.value[livesetId];
-        if (comments === undefined) {
-            return true;
-        }
-
-        if (comment.parent_id) {
-            const parent = comments.find(c => c.id === comment.parent_id);
-            if (!parent || parent.replies?.some(r => r.id === comment.id)) {
-                return false;
+        if (comments !== undefined) {
+            if (comment.parent_id) {
+                const parent = comments.find(c => c.id === comment.parent_id);
+                if (!parent || parent.replies?.some(r => r.id === comment.id)) {
+                    return false;
+                }
+                parent.replies = [...(parent.replies ?? []), comment];
+            } else {
+                if (comments.some(c => c.id === comment.id)) {
+                    return false;
+                }
+                commentsByLiveset.value[livesetId] = [...comments, comment];
             }
-            parent.replies = [...(parent.replies ?? []), comment];
-            return true;
         }
-
-        if (comments.some(c => c.id === comment.id)) {
-            return false;
-        }
-        commentsByLiveset.value[livesetId] = [...comments, comment];
+        bumpCount(livesetId, 1);
         return true;
     }
 
     /**
-     * Turn a comment into a [deleted] placeholder, returns false if it already was one (or isn't loaded)
+     * Same as the index endpoint: a top-level comment without replies disappears,
+     * anything else becomes a [deleted] placeholder. The count drops once.
      */
-    function markDeletedInState(livesetId: number, commentId: number): boolean {
-        for (const comment of commentsByLiveset.value[livesetId] ?? []) {
-            const target = comment.id === commentId ? comment : comment.replies?.find(r => r.id === commentId);
-            if (target) {
-                if (target.is_deleted) {
-                    return false;
-                }
-                target.is_deleted = true;
-                target.body = null;
-                return true;
-            }
+    function removeComment(livesetId: number, commentId: number): void {
+        const comments = commentsByLiveset.value[livesetId];
+        if (comments === undefined) {
+            bumpCount(livesetId, -1);
+            return;
         }
-        return false;
+
+        const comment = findComment(livesetId, commentId);
+        if (!comment || comment.is_deleted) {
+            return;
+        }
+
+        const isTopLevel = comments.some(c => c.id === commentId);
+        if (isTopLevel && !comment.replies?.length) {
+            commentsByLiveset.value[livesetId] = comments.filter(c => c.id !== commentId);
+        } else {
+            comment.is_deleted = true;
+            comment.body = null;
+        }
+        bumpCount(livesetId, -1);
     }
 
-    function addBroadcastComment(livesetId: number, comment: Comment) {
-        if (addCommentToState(livesetId, comment)) {
-            commentCounts.value[livesetId] = (commentCounts.value[livesetId] ?? 0) + 1;
-            lastIncomingComment.value = { livesetId, comment };
+    /**
+     * Un-delete the placeholder, or add the comment back if it had been dropped
+     */
+    function restoreComment(livesetId: number, restored: Comment): void {
+        const existing = findComment(livesetId, restored.id);
+        if (!existing) {
+            addComment(livesetId, withOwnership(restored));
+            return;
+        }
+        if (existing.is_deleted) {
+            Object.assign(existing, restored);
+            bumpCount(livesetId, 1);
         }
     }
 
     /**
-     * Follow new, edited and deleted comments of a liveset live. Ref-counted, every subscribe needs an unsubscribe.
+     * Follow new, edited, deleted and restored comments of a liveset live. Ref-counted, every subscribe needs an unsubscribe.
      */
     function subscribeToLiveset(livesetId: number): void {
         livesetSubscriptions[livesetId] = (livesetSubscriptions[livesetId] ?? 0) + 1;
@@ -240,13 +261,19 @@ export function useComments() {
         }
 
         echo().channel(`comments.liveset.${livesetId}`)
-            .listen('.comment.posted', (comment: Comment) => addBroadcastComment(livesetId, comment))
-            .listen('.comment.updated', (comment: Comment) => updateCommentInState(livesetId, comment))
-            .listen('.comment.deleted', (comment: Comment) => {
-                if (markDeletedInState(livesetId, comment.id)) {
-                    commentCounts.value[livesetId] = Math.max(0, (commentCounts.value[livesetId] ?? 0) - 1);
+            .listen('.comment.posted', (payload: Comment) => {
+                // The queued payload is built from the current row, a quick delete can beat it
+                if (payload.is_deleted) {
+                    return;
                 }
-            });
+                const comment = withOwnership(payload);
+                if (addComment(livesetId, comment) && !comment.is_own) {
+                    lastIncomingComment.value = { livesetId, comment };
+                }
+            })
+            .listen('.comment.updated', (payload: Comment) => updateCommentInState(livesetId, payload))
+            .listen('.comment.deleted', (payload: Comment) => removeComment(livesetId, payload.id))
+            .listen('.comment.restored', (payload: Comment) => restoreComment(livesetId, payload));
     }
 
     function unsubscribeFromLiveset(livesetId: number): void {
@@ -282,7 +309,6 @@ export function useComments() {
         postComment,
         editComment,
         deleteComment,
-        addBroadcastComment,
         subscribeToLiveset,
         unsubscribeFromLiveset,
         lastIncomingComment,

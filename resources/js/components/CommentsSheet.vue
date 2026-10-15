@@ -37,7 +37,10 @@ const frozenTimestamp = ref<number | null>(null);
 const replyingTo = ref<number | null>(null);
 const posting = ref(false);
 
-const comments = computed(() => getComments(props.liveset.id));
+// Sorted here so live and own comments land in the right place, not just at the end
+const comments = computed(() => [...getComments(props.liveset.id)].sort((a, b) => sortBy.value === 'timestamp'
+    ? a.timestamp_seconds - b.timestamp_seconds || a.created_at.localeCompare(b.created_at)
+    : a.created_at.localeCompare(b.created_at)));
 const commentCount = computed(() => getCommentCount(props.liveset.id));
 
 const currentTimestamp = computed(() => {
@@ -83,8 +86,9 @@ function onTimestampInput(value: string) {
     }
 }
 
+// Refetch on every open, changes while closed weren't followed live
 watch(isOpen, async (open) => {
-    if (open && !loaded.value) {
+    if (open) {
         await fetchComments(props.liveset.id, sortBy.value);
         loaded.value = true;
     }
@@ -105,9 +109,8 @@ onBeforeUnmount(() => {
     }
 });
 
-async function toggleSort() {
+function toggleSort() {
     sortBy.value = sortBy.value === 'timestamp' ? 'date' : 'timestamp';
-    await fetchComments(props.liveset.id, sortBy.value);
 }
 
 function handleReply(commentId: number) {
