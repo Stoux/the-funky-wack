@@ -3,6 +3,7 @@ import { QueueItem, QueueSource, Edition, Liveset } from '@/types';
 import { useNowPlayingState } from './useNowPlayingState';
 import { useEditions } from './useEditions';
 import { useAudioPlayer } from './useAudioPlayer';
+import { useListenAlong } from './useListenAlong';
 
 const lsKey = 'tfw::queue';
 
@@ -61,6 +62,7 @@ export function useQueue() {
     const { currentLiveset, currentEdition, finished, autoplaying } = useNowPlayingState();
     const { findLivesetById, sortedEditions } = useEditions();
     const { playLiveset } = useAudioPlayer();
+    const { isListeningAlong, syncPaused } = useListenAlong();
 
     /**
      * Next item in the queue (or null if none)
@@ -253,6 +255,11 @@ export function useQueue() {
         // Detached scope so the watcher outlives the component that happened to call useQueue() first
         effectScope(true).run(() => watch(finished, (isFinished) => {
             if (!isFinished) {
+                return;
+            }
+
+            // Synced listeners follow the host's track change instead
+            if (isListeningAlong.value && !syncPaused.value) {
                 return;
             }
 
