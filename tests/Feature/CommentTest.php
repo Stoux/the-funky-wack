@@ -2,6 +2,7 @@
 
 use App\Events\CommentDeleted;
 use App\Events\CommentPosted;
+use App\Events\CommentRestored;
 use App\Events\CommentUpdated;
 use App\Models\Comment;
 use App\Models\Liveset;
@@ -363,5 +364,15 @@ describe('realtime comment events', function () {
         expect(new $eventClass($comment))
             ->toBeInstanceOf(ShouldBroadcast::class)
             ->not->toBeInstanceOf(ShouldBroadcastNow::class);
-    })->with([CommentPosted::class, CommentUpdated::class, CommentDeleted::class]);
+    })->with([CommentPosted::class, CommentUpdated::class, CommentDeleted::class, CommentRestored::class]);
+
+    it('uses the realtime payload as the API comment shape, plus is_own', function () {
+        $parent = Comment::factory()->create(['liveset_id' => $this->liveset->id, 'user_id' => $this->user->id]);
+        $reply = Comment::factory()->reply($parent)->create();
+
+        $response = $this->actingAs($this->user, 'sanctum')->getJson("/api/livesets/{$this->liveset->id}/comments");
+
+        expect($response->json('comments.0'))->toMatchArray([...$parent->fresh()->toBroadcastPayload(), 'is_own' => true])
+            ->and($response->json('comments.0.replies.0'))->toMatchArray([...$reply->fresh()->toBroadcastPayload(), 'is_own' => false]);
+    });
 });

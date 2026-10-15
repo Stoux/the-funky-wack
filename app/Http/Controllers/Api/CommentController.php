@@ -117,13 +117,7 @@ class CommentController extends Controller
     protected function formatComment(Comment $comment, ?int $currentUserId): array
     {
         $data = [
-            'id' => $comment->id,
-            'user' => $comment->user ? ['id' => $comment->user->id, 'name' => $comment->user->name] : null,
-            'body' => $comment->trashed() ? null : $comment->body,
-            'is_deleted' => $comment->trashed(),
-            'timestamp_seconds' => $comment->timestamp_seconds,
-            'created_at' => $comment->created_at->toIso8601String(),
-            'updated_at' => $comment->updated_at->toIso8601String(),
+            ...$comment->toBroadcastPayload(),
             'is_own' => $currentUserId !== null && $comment->user_id === $currentUserId,
         ];
 

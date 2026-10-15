@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Events\CommentDeleted;
-use App\Events\CommentUpdated;
+use App\Events\CommentRestored;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use Inertia\Inertia;
@@ -43,7 +43,7 @@ class CommentController extends Controller
     {
         $comment = Comment::withTrashed()->findOrFail($id);
         $comment->restore();
-        broadcast(new CommentUpdated($comment));
+        broadcast(new CommentRestored($comment));
 
         return back()->with('success', 'Comment restored.');
     }

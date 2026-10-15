@@ -1,7 +1,7 @@
 <?php
 
 use App\Events\CommentDeleted;
-use App\Events\CommentUpdated;
+use App\Events\CommentRestored;
 use App\Models\Comment;
 use App\Models\Liveset;
 use App\Models\User;
@@ -75,7 +75,7 @@ describe('admin comment management', function () {
     });
 
     it('broadcasts deletes and restores to the public liveset channel', function () {
-        Event::fake([CommentDeleted::class, CommentUpdated::class]);
+        Event::fake([CommentDeleted::class, CommentRestored::class]);
         $comment = Comment::factory()->create(['liveset_id' => $this->liveset->id]);
 
         $this->actingAs($this->admin)
@@ -86,7 +86,8 @@ describe('admin comment management', function () {
             ->post(route('admin.comments.restore', $comment));
 
         Event::assertDispatched(CommentDeleted::class, fn (CommentDeleted $event) => $event->comment->is($comment));
-        Event::assertDispatched(CommentUpdated::class, fn (CommentUpdated $event) => $event->comment->is($comment)
+        Event::assertDispatched(CommentRestored::class, fn (CommentRestored $event) => $event->comment->is($comment)
+            && $event->broadcastAs() === 'comment.restored'
             && $event->broadcastWith()['is_deleted'] === false);
     });
 });
