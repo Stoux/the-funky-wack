@@ -215,6 +215,28 @@ describe('POST /api/livesets/{liveset}/comments', function () {
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['parent_id']);
     });
+
+    it('rejects reply to a deleted comment instead of storing it as top-level', function () {
+        $parent = Comment::factory()->create(['liveset_id' => $this->liveset->id]);
+        $parent->delete();
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson("/api/livesets/{$this->liveset->id}/comments", [
+                'body' => 'Too late!',
+                'timestamp_seconds' => 0,
+                'parent_id' => $parent->id,
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['parent_id']);
+        expect(Comment::where('body', 'Too late!')->exists())->toBeFalse();
+    });
+
+    it('queues the CommentPosted broadcast instead of sending it during the request', function () {
+        expect(new CommentPosted(Comment::factory()->create(['liveset_id' => $this->liveset->id])))
+            ->toBeInstanceOf(\Illuminate\Contracts\Broadcasting\ShouldBroadcast::class)
+            ->not->toBeInstanceOf(\Illuminate\Contracts\Broadcasting\ShouldBroadcastNow::class);
+    });
 });
 
 describe('PUT /api/comments/{comment}', function () {

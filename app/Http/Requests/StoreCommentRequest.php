@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Comment;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCommentRequest extends FormRequest
 {
@@ -17,7 +18,7 @@ class StoreCommentRequest extends FormRequest
         return [
             'body' => ['required', 'string', 'max:2000'],
             'timestamp_seconds' => ['required', 'integer', 'min:0'],
-            'parent_id' => ['nullable', 'integer', 'exists:comments,id'],
+            'parent_id' => ['nullable', 'integer', Rule::exists('comments', 'id')->withoutTrashed()],
         ];
     }
 

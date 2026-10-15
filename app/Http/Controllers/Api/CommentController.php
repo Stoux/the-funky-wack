@@ -8,6 +8,7 @@ use App\Http\Requests\StoreCommentRequest;
 use App\Http\Requests\UpdateCommentRequest;
 use App\Models\Comment;
 use App\Models\Liveset;
+use App\Models\User;
 use App\Notifications\CommentReply;
 use App\Notifications\NewCommentOnLiveset;
 use Illuminate\Http\JsonResponse;
@@ -30,14 +31,7 @@ class CommentController extends Controller
             }])
             ->orderBy($sortBy)
             ->get()
-            ->filter(function (Comment $comment) {
-                // Exclude deleted comments that have no replies
-                if ($comment->trashed() && $comment->replies->isEmpty()) {
-                    return false;
-                }
-
-                return true;
-            })
+            ->reject(fn (Comment $comment) => $comment->trashed() && $comment->replies->isEmpty())
             ->values()
             ->map(fn (Comment $comment) => $this->formatComment($comment, $userId));
 
@@ -58,11 +52,8 @@ class CommentController extends Controller
 
         $comment->load('user:id,name');
 
-        // Broadcast to liveset channel
         CommentPosted::dispatch($comment);
-
-        // Send notifications
-        $this->sendNotifications($comment, $liveset);
+        $this->sendNotifications($comment, $liveset, $parent);
 
         return response()->json([
             'comment' => $this->formatComment($comment, $request->user()->id),
@@ -138,32 +129,26 @@ class CommentController extends Controller
         return $data;
     }
 
-    protected function sendNotifications(Comment $comment, Liveset $liveset): void
+    /**
+     * A reply notifies the parent's author, every comment notifies the other commenters on the liveset
+     * (except the parent's author, who already got the reply notification).
+     */
+    protected function sendNotifications(Comment $comment, Liveset $liveset, ?Comment $parent): void
     {
         $commenterId = $comment->user_id;
 
-        // If reply: notify parent comment's author
-        if ($comment->parent_id) {
-            $parent = Comment::find($comment->parent_id);
-            if ($parent && $parent->user_id !== $commenterId) {
-                $parent->user->notify(new CommentReply($comment, $liveset));
-            }
+        if ($parent && $parent->user_id !== $commenterId) {
+            $parent->user?->notify(new CommentReply($comment, $liveset));
         }
 
-        // Notify all other users who have commented on this liveset
-        $otherCommenters = \App\Models\User::whereIn(
+        $otherCommenters = User::whereIn(
             'id',
             Comment::where('liveset_id', $liveset->id)
                 ->where('user_id', '!=', $commenterId)
+                ->when($parent?->user_id, fn ($query, $parentUserId) => $query->where('user_id', '!=', $parentUserId))
                 ->distinct()
                 ->pluck('user_id')
         )->get();
-
-        // Don't send duplicate reply notification
-        if ($comment->parent_id) {
-            $parentUserId = Comment::find($comment->parent_id)?->user_id;
-            $otherCommenters = $otherCommenters->reject(fn ($user) => $user->id === $parentUserId);
-        }
 
         if ($otherCommenters->isNotEmpty()) {
             Notification::send($otherCommenters, new NewCommentOnLiveset($comment, $liveset));
