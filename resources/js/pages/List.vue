@@ -29,25 +29,15 @@ onMounted(() => {
 // Use the shared audio player
 const { playLiveset } = useAudioPlayer();
 
-// Queue system (handles auto-advance when playing from playlists/favorites)
-const { isQueueActive, clearQueue } = useQueue();
+// Queue system (handles auto-advance for both the queue and edition autoplay)
+const { clearQueue } = useQueue();
 
 // State for the currently playing liveset
 const {
     currentLiveset,
-    currentEdition,
     playing,
-    finished,
     autoplaying,
 } = useNowPlayingState();
-
-watch(finished, isFinished => {
-    // Only autoplay from edition if queue is not active
-    // Queue handles its own auto-advance
-    if (isFinished && !isQueueActive.value) {
-        possiblyAutoplayNextLiveset();
-    }
-})
 
 // Play a liveset
 const handlePlayLiveset = (edition: Edition, liveset: Liveset, quality?: LivesetQuality, atTime: number = 0) => {
@@ -56,40 +46,6 @@ const handlePlayLiveset = (edition: Edition, liveset: Liveset, quality?: Liveset
     clearQueue();
     playLiveset(edition, liveset, quality, atTime);
 };
-
-const possiblyAutoplayNextLiveset = () => {
-    // Early abort if autoplay is disabled.
-    if (!autoplaying.value || !currentEdition.value || !currentLiveset.value) {
-        return;
-    }
-
-    // Find the next liveset in our current edition
-    const nextLiveset = currentEdition.value.livesets?.find(liveset => (liveset.lineup_order ?? 0) > (currentLiveset.value?.lineup_order ?? 0) && liveset.files);
-    if (nextLiveset) {
-        playLiveset(currentEdition.value, nextLiveset);
-        return;
-    }
-
-    // Otherwise look for a liveset in the next edition(s) => Find our index
-    let currentIndex = sortedEditions.value.findIndex(edition => edition.id === currentEdition.value?.id);
-    if (currentIndex === -1) {
-        return;
-    }
-
-    // Go to the next edition (if it exists)
-    currentIndex++;
-
-    // Loop through the next editions
-    for ( ; currentIndex < sortedEditions.value.length; currentIndex++) {
-        // Check if that edition has a liveset with playable files
-        const nextEdition = sortedEditions.value[currentIndex];
-        const nextLiveset = nextEdition.livesets?.find(liveset => liveset.files);
-        if (nextLiveset) {
-            playLiveset(nextEdition, nextLiveset);
-            return;
-        }
-    }
-}
 
 // Listen Along - fetch session count for nav indicator, with real-time updates
 const { totalListeners, fetchSessions: fetchLiveSessions, joinLiveChannel, leaveLiveChannel } = useListenAlong();

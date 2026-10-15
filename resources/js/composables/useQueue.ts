@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, effectScope } from 'vue';
 import { QueueItem, QueueSource, Edition, Liveset } from '@/types';
 import { useNowPlayingState } from './useNowPlayingState';
 import { useEditions } from './useEditions';
@@ -250,7 +250,8 @@ export function useQueue() {
         }
         hasAutoAdvanceSetup = true;
 
-        watch(finished, (isFinished) => {
+        // Detached scope so the watcher outlives the component that happened to call useQueue() first
+        effectScope(true).run(() => watch(finished, (isFinished) => {
             if (!isFinished) {
                 return;
             }
@@ -267,7 +268,7 @@ export function useQueue() {
                 console.log('[Queue] Track finished, autoplaying next:', next.liveset.title);
                 playLiveset(next.edition, next.liveset);
             }
-        });
+        }));
     }
 
     // Set up auto-advance when the composable is first used
