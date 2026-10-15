@@ -406,6 +406,12 @@ export function useAudioPlayer() {
             return;
         }
 
+        // Drop the old instance right away, otherwise the seek/play watchers act on it before
+        // initPlayer replaces it (e.g. restarting a finished set when currentTime resets to 0)
+        if (currentLiveset.value?.id !== liveset.id) {
+            destroyWaveInstance();
+        }
+
         currentEdition.value = edition;
         currentLiveset.value = liveset;
         currentTime.value = atTime;
