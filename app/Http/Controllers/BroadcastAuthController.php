@@ -54,7 +54,8 @@ class BroadcastAuthController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return Broadcast::auth($request);
+        // Pusher-compatible broadcasters (Reverb) return the auth payload as a plain array
+        return response()->json(Broadcast::auth($request));
     }
 
     /**
