@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import {formatDuration} from "@/lib/utils";
-import {Pause, Play, MoreVertical, ListMusic, FileText, Share2, ListPlus, ListEnd, CheckCircle} from "lucide-vue-next";
+import {Pause, Play, MoreVertical, ListMusic, FileText, Share2, ListPlus, ListEnd, CheckCircle, MessageCircle} from "lucide-vue-next";
 import {Button, type ButtonVariants} from "@/components/ui/button";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import CommentsSheet from "@/components/CommentsSheet.vue";
@@ -43,6 +43,7 @@ const play = (quality?: LivesetQuality) => {
 // Refs for components with dialogs/sheets
 const trackListRef = ref<InstanceType<typeof LivesetTrackList> | null>(null);
 const descriptionRef = ref<InstanceType<typeof LivesetDescription> | null>(null);
+const commentsRef = ref<InstanceType<typeof CommentsSheet> | null>(null);
 const shareRef = ref<InstanceType<typeof ShareLivesetButton> | null>(null);
 const addToPlaylistRef = ref<InstanceType<typeof AddToPlaylistButton> | null>(null);
 
@@ -120,7 +121,7 @@ function handleAddToQueue() {
 
             <!-- Tracklist, Description & Favorite - always visible -->
             <LivesetTrackList ref="trackListRef" :liveset="liveset" :button-type="iconButtonType" />
-            <CommentsSheet :liveset="liveset" :button-type="iconButtonType" />
+            <CommentsSheet ref="commentsRef" :liveset="liveset" :button-type="iconButtonType" trigger-class="hidden md:inline-flex" />
             <LivesetDescription ref="descriptionRef" :edition="edition" :liveset="liveset" :button-type="iconButtonType" />
             <FavoriteButton :liveset-id="liveset.id" :button-type="iconButtonType" />
 
@@ -160,7 +161,11 @@ function handleAddToQueue() {
                             <FileText class="h-4 w-4 mr-2" />
                             Description
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator v-if="liveset.tracks?.length || liveset.description" />
+                        <DropdownMenuItem @click="commentsRef?.open?.()">
+                            <MessageCircle class="h-4 w-4 mr-2" />
+                            Comments
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                     </div>
 
                     <!-- Actions - always in menu -->

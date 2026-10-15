@@ -343,7 +343,8 @@ function handleWaveformClick(): void {
 
                 <LivesetTrackList :liveset="currentLiveset!" :current-time="currentTime" button-type="ghost" v-if="currentLiveset?.tracks?.length" />
 
-                <CommentsSheet ref="commentsSheet" :liveset="currentLiveset!" button-type="ghost" />
+                <!-- Hidden on mobile for space, the waveform markers still open it -->
+                <CommentsSheet ref="commentsSheet" :liveset="currentLiveset!" button-type="ghost" trigger-class="hidden sm:inline-flex" />
 
                 <LivesetDescription :edition="currentEdition!" :liveset="currentLiveset!" button-type="ghost" v-if="currentLiveset?.description" />
 

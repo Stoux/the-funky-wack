@@ -1,17 +1,42 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { onMounted } from 'vue';
+import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Bell } from 'lucide-vue-next';
 import UserMenu from '@/components/UserMenu.vue';
+import CommentsSheet from '@/components/CommentsSheet.vue';
 import { useNotifications } from '@/composables/useNotifications';
+import { useEditions } from '@/composables/useEditions';
 import { formatDuration } from '@/lib/utils';
+import type { AppNotification, Liveset } from '@/types';
 
 const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications();
+const { findLivesetById } = useEditions();
+
+const commentsSheet = useTemplateRef('commentsSheet');
+const commentsLiveset = ref<Liveset | null>(null);
 
 onMounted(() => {
     fetchNotifications();
 });
+
+/**
+ * Mark as read and open the comments of the liveset it's about
+ */
+async function openNotification(notification: AppNotification) {
+    if (!notification.read_at) {
+        markAsRead(notification.id);
+    }
+
+    const found = findLivesetById(notification.data.liveset_id);
+    if (!found) {
+        return;
+    }
+
+    commentsLiveset.value = found.liveset;
+    await nextTick();
+    commentsSheet.value?.open();
+}
 
 function getNotificationText(data: Record<string, unknown>): string {
     if (data.type === 'comment_reply') {
@@ -57,7 +82,7 @@ function getNotificationText(data: Record<string, unknown>): string {
                     :key="notification.id"
                     class="flex items-start gap-3 p-3 rounded-lg transition-colors cursor-pointer"
                     :class="notification.read_at ? 'text-muted-foreground' : 'bg-muted/50'"
-                    @click="!notification.read_at && markAsRead(notification.id)"
+                    @click="openNotification(notification)"
                 >
                     <Bell class="h-4 w-4 mt-0.5 shrink-0" :class="notification.read_at ? 'text-muted-foreground' : 'text-primary'" />
                     <div class="flex-1 min-w-0">
@@ -84,6 +109,14 @@ function getNotificationText(data: Record<string, unknown>): string {
                     No notifications yet.
                 </div>
             </div>
+
+            <CommentsSheet
+                v-if="commentsLiveset"
+                :key="commentsLiveset.id"
+                ref="commentsSheet"
+                :liveset="commentsLiveset"
+                trigger-class="hidden"
+            />
         </div>
     </div>
 </template>

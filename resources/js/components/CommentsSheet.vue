@@ -15,13 +15,14 @@ import { ref, watch, computed } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 import { useComments } from '@/composables/useComments';
 import { useNowPlayingState } from '@/composables/useNowPlayingState';
-import { formatDuration } from '@/lib/utils';
+import { cn, formatDuration } from '@/lib/utils';
 import CommentItem from '@/components/CommentItem.vue';
 import type { Liveset } from '@/types';
 
 const props = defineProps<{
     liveset: Liveset;
     buttonType?: ButtonVariants['variant'];
+    triggerClass?: string;
 }>();
 
 const { isAuthenticated } = useAuth();
@@ -49,6 +50,39 @@ const currentTimestamp = computed(() => {
     return 0;
 });
 
+// Raw text while the timestamp field is being edited, null otherwise
+const timestampText = ref<string | null>(null);
+// A typed timestamp sticks until posting or cancelling, it doesn't follow the playhead anymore
+const timestampEdited = ref(false);
+
+const timestampInvalid = computed(() => {
+    if (timestampText.value !== null && parseTimestamp(timestampText.value) === null) {
+        return true;
+    }
+    const duration = props.liveset.duration_in_seconds;
+    return !!duration && currentTimestamp.value > duration;
+});
+
+/**
+ * Parse "mm:ss" or "hh:mm:ss" (or plain seconds) into seconds, null if invalid
+ */
+function parseTimestamp(value: string): number | null {
+    const parts = value.trim().split(':');
+    if (parts.length > 3 || parts.some(part => !/^\d+$/.test(part))) {
+        return null;
+    }
+    return parts.reduce((total, part) => total * 60 + Number(part), 0);
+}
+
+function onTimestampInput(value: string) {
+    timestampText.value = value;
+    timestampEdited.value = true;
+    const parsed = parseTimestamp(value);
+    if (parsed !== null) {
+        frozenTimestamp.value = parsed;
+    }
+}
+
 watch(isOpen, async (open) => {
     if (open && !loaded.value) {
         await fetchComments(props.liveset.id, sortBy.value);
@@ -74,6 +108,8 @@ function freezeTimestamp() {
 
 function unfreezeTimestamp() {
     frozenTimestamp.value = null;
+    timestampText.value = null;
+    timestampEdited.value = false;
 }
 
 async function submitComment() {
@@ -118,7 +154,7 @@ defineExpose({ open, openAtTimestamp });
 <template>
     <Sheet v-model:open="isOpen">
         <SheetTrigger as-child>
-            <Button size="icon" :variant="buttonType ?? 'outline'" class="h-8 w-8 rounded-full cursor-pointer" title="Comments">
+            <Button size="icon" :variant="buttonType ?? 'outline'" :class="cn('h-8 w-8 rounded-full cursor-pointer', triggerClass)" title="Comments">
                 <MessageCircle class="h-4 w-4" />
             </Button>
         </SheetTrigger>
@@ -166,22 +202,38 @@ defineExpose({ open, openAtTimestamp });
                     </button>
                 </div>
                 <div class="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                    <span class="font-mono">{{ formatDuration(currentTimestamp) }}</span>
+                    <span v-if="replyingTo" class="font-mono">{{ formatDuration(currentTimestamp) }}</span>
+                    <input
+                        v-else
+                        type="text"
+                        inputmode="numeric"
+                        aria-label="Comment timestamp"
+                        title="Timestamp (mm:ss)"
+                        class="w-20 rounded border bg-background px-1.5 py-0.5 font-mono"
+                        :class="timestampInvalid ? 'border-destructive text-destructive' : 'border-input'"
+                        :value="timestampText ?? formatDuration(currentTimestamp)"
+                        @focus="freezeTimestamp"
+                        @input="onTimestampInput(($event.target as HTMLInputElement).value)"
+                        @blur="timestampText = null"
+                    />
+                    <span v-if="timestampInvalid" class="text-destructive">
+                        Use mm:ss within {{ formatDuration(liveset.duration_in_seconds) }}
+                    </span>
                 </div>
                 <div class="flex gap-2">
                     <textarea
                         v-model="newBody"
                         placeholder="Write a comment..."
-                        class="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                        class="flex-1 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
                         rows="2"
                         maxlength="2000"
                         @focus="freezeTimestamp"
-                        @blur="!newBody.trim() && unfreezeTimestamp()"
+                        @blur="!newBody.trim() && !timestampEdited && unfreezeTimestamp()"
                     />
                     <Button
                         size="sm"
                         class="self-end"
-                        :disabled="!newBody.trim() || posting"
+                        :disabled="!newBody.trim() || posting || timestampInvalid"
                         @click="submitComment"
                     >
                         Post
