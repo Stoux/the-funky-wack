@@ -8,7 +8,7 @@ const props = defineProps<{
     currentTime: number;
 }>();
 
-const { getComments } = useComments();
+const { getComments, lastIncomingComment } = useComments();
 
 const activeComment = ref<{
     userId: number;
@@ -38,26 +38,42 @@ const allComments = computed(() => {
     return flat.sort((a, b) => a.timestamp - b.timestamp);
 });
 
+function showBubble(comment: { id: number; userId: number; name: string; body: string }) {
+    lastShownId = comment.id;
+    const truncated = comment.body.length > 100 ? comment.body.substring(0, 97) + '...' : comment.body;
+    activeComment.value = {
+        userId: comment.userId,
+        name: comment.name,
+        initials: getUserInitials(comment.name),
+        body: truncated,
+    };
+    visible.value = true;
+
+    if (hideTimeout) {
+        clearTimeout(hideTimeout);
+    }
+    hideTimeout = setTimeout(() => {
+        visible.value = false;
+    }, 5000);
+}
+
 watch(() => props.currentTime, (time) => {
     const match = allComments.value.find(c => Math.abs(c.timestamp - time) < 1);
 
     if (match && match.id !== lastShownId) {
-        lastShownId = match.id;
-        const truncated = match.body.length > 100 ? match.body.substring(0, 97) + '...' : match.body;
-        activeComment.value = {
-            userId: match.userId,
-            name: match.name,
-            initials: getUserInitials(match.name),
-            body: truncated,
-        };
-        visible.value = true;
+        showBubble(match);
+    }
+});
 
-        if (hideTimeout) {
-            clearTimeout(hideTimeout);
-        }
-        hideTimeout = setTimeout(() => {
-            visible.value = false;
-        }, 5000);
+// Someone else just posted on this set
+watch(lastIncomingComment, (incoming) => {
+    if (incoming?.livesetId === props.livesetId && incoming.comment.body) {
+        showBubble({
+            id: incoming.comment.id,
+            userId: incoming.comment.user?.id ?? 0,
+            name: incoming.comment.user?.name ?? '?',
+            body: incoming.comment.body,
+        });
     }
 });
 </script>

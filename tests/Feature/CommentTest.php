@@ -1,9 +1,15 @@
 <?php
 
+use App\Events\CommentDeleted;
 use App\Events\CommentPosted;
+use App\Events\CommentUpdated;
 use App\Models\Comment;
 use App\Models\Liveset;
 use App\Models\User;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
@@ -308,4 +314,54 @@ describe('DELETE /api/comments/{comment}', function () {
 
         $response->assertForbidden();
     });
+});
+
+describe('realtime comment events', function () {
+    it('broadcasts posts, edits and deletes to others on the public liveset channel', function () {
+        Event::fake([CommentPosted::class, CommentUpdated::class, CommentDeleted::class]);
+
+        $this->actingAs($this->user, 'sanctum')
+            ->withHeader('X-Socket-ID', '1234.5678')
+            ->postJson("/api/livesets/{$this->liveset->id}/comments", ['body' => 'Live!', 'timestamp_seconds' => 42]);
+        $comment = Comment::where('body', 'Live!')->firstOrFail();
+
+        $this->actingAs($this->user, 'sanctum')
+            ->withHeader('X-Socket-ID', '1234.5678')
+            ->putJson("/api/comments/{$comment->id}", ['body' => 'Live, edited!']);
+
+        $this->actingAs($this->user, 'sanctum')
+            ->withHeader('X-Socket-ID', '1234.5678')
+            ->deleteJson("/api/comments/{$comment->id}");
+
+        $expectations = [
+            CommentPosted::class => ['comment.posted', 'Live!', false],
+            CommentUpdated::class => ['comment.updated', 'Live, edited!', false],
+            CommentDeleted::class => ['comment.deleted', null, true],
+        ];
+        foreach ($expectations as $eventClass => [$name, $body, $isDeleted]) {
+            Event::assertDispatched($eventClass, function ($event) use ($comment, $name, $body, $isDeleted) {
+                $channel = $event->broadcastOn()[0];
+                $payload = $event->broadcastWith();
+
+                return $channel instanceof Channel
+                    && ! $channel instanceof PrivateChannel
+                    && $channel->name === "comments.liveset.{$this->liveset->id}"
+                    && $event->broadcastAs() === $name
+                    && $event->socket === '1234.5678'
+                    && $payload['id'] === $comment->id
+                    && $payload['body'] === $body
+                    && $payload['is_deleted'] === $isDeleted
+                    && $payload['timestamp_seconds'] === 42
+                    && ! array_key_exists('is_own', $payload);
+            });
+        }
+    });
+
+    it('queues all comment broadcasts instead of sending them during the request', function (string $eventClass) {
+        $comment = Comment::factory()->create(['liveset_id' => $this->liveset->id]);
+
+        expect(new $eventClass($comment))
+            ->toBeInstanceOf(ShouldBroadcast::class)
+            ->not->toBeInstanceOf(ShouldBroadcastNow::class);
+    })->with([CommentPosted::class, CommentUpdated::class, CommentDeleted::class]);
 });

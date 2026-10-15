@@ -11,7 +11,7 @@ import {
 import { Button, type ButtonVariants } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageCircle, ArrowUpDown } from 'lucide-vue-next';
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 import { useComments } from '@/composables/useComments';
 import { useNowPlayingState } from '@/composables/useNowPlayingState';
@@ -26,7 +26,7 @@ const props = defineProps<{
 }>();
 
 const { isAuthenticated } = useAuth();
-const { fetchComments, getComments, postComment, getCommentCount } = useComments();
+const { fetchComments, getComments, postComment, getCommentCount, subscribeToLiveset, unsubscribeFromLiveset } = useComments();
 const { currentTime, currentLiveset } = useNowPlayingState();
 
 const isOpen = ref(false);
@@ -87,6 +87,21 @@ watch(isOpen, async (open) => {
     if (open && !loaded.value) {
         await fetchComments(props.liveset.id, sortBy.value);
         loaded.value = true;
+    }
+});
+
+// Follow the liveset live while the sheet is open
+watch([isOpen, () => props.liveset.id], ([open, livesetId], [wasOpen, previousLivesetId]) => {
+    if (wasOpen && previousLivesetId) {
+        unsubscribeFromLiveset(previousLivesetId);
+    }
+    if (open) {
+        subscribeToLiveset(livesetId);
+    }
+});
+onBeforeUnmount(() => {
+    if (isOpen.value) {
+        unsubscribeFromLiveset(props.liveset.id);
     }
 });
 

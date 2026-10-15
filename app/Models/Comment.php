@@ -47,4 +47,23 @@ class Comment extends Model
     {
         return $this->hasMany(Comment::class, 'parent_id');
     }
+
+    /**
+     * Payload for the realtime comment events: the API's comment shape plus parent_id, minus the per-user is_own.
+     *
+     * @return array{id: int, user: array{id: int, name: string}|null, body: string|null, is_deleted: bool, timestamp_seconds: int, parent_id: int|null, created_at: string, updated_at: string}
+     */
+    public function toBroadcastPayload(): array
+    {
+        return [
+            'id' => $this->id,
+            'user' => $this->user ? ['id' => $this->user->id, 'name' => $this->user->name] : null,
+            'body' => $this->trashed() ? null : $this->body,
+            'is_deleted' => $this->trashed(),
+            'timestamp_seconds' => $this->timestamp_seconds,
+            'parent_id' => $this->parent_id,
+            'created_at' => $this->created_at->toIso8601String(),
+            'updated_at' => $this->updated_at->toIso8601String(),
+        ];
+    }
 }

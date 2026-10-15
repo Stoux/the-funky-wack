@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\CommentDeleted;
 use App\Events\CommentPosted;
+use App\Events\CommentUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCommentRequest;
 use App\Http\Requests\UpdateCommentRequest;
@@ -52,7 +54,7 @@ class CommentController extends Controller
 
         $comment->load('user:id,name');
 
-        CommentPosted::dispatch($comment);
+        broadcast(new CommentPosted($comment))->toOthers();
         $this->sendNotifications($comment, $liveset, $parent);
 
         return response()->json([
@@ -64,6 +66,8 @@ class CommentController extends Controller
     {
         $comment->update(['body' => $request->body]);
         $comment->load('user:id,name');
+
+        broadcast(new CommentUpdated($comment))->toOthers();
 
         return response()->json([
             'comment' => $this->formatComment($comment, $request->user()->id),
@@ -79,6 +83,7 @@ class CommentController extends Controller
         }
 
         $comment->delete();
+        broadcast(new CommentDeleted($comment))->toOthers();
 
         return response()->json(['message' => 'Comment deleted.']);
     }

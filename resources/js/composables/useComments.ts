@@ -1,10 +1,17 @@
 import { effectScope, ref, watch } from 'vue';
+import { echo } from '@laravel/echo-vue';
 import { useAuth } from './useAuth';
 import type { Comment } from '@/types';
 
 // Shared state across all components
 const commentsByLiveset = ref<Record<number, Comment[]>>({});
 const commentCounts = ref<Record<number, number>>({});
+
+// Latest comment someone else posted while we were subscribed (drives the live bubble)
+const lastIncomingComment = ref<{ livesetId: number; comment: Comment } | null>(null);
+
+// Subscriber count per liveset channel
+const livesetSubscriptions: Record<number, number> = {};
 
 let hasUserWatcher = false;
 
@@ -79,6 +86,7 @@ export function useComments() {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                     'X-XSRF-TOKEN': getCsrfToken(),
+                    ...socketHeader(),
                 },
                 credentials: 'include',
                 body: JSON.stringify({
@@ -90,26 +98,11 @@ export function useComments() {
 
             if (response.ok) {
                 const data = await response.json();
-                const comment = data.comment as Comment;
+                const comment: Comment = { ...data.comment, parent_id: parentId ?? null };
 
-                // Add to state
-                if (parentId) {
-                    // Add reply to parent
-                    const comments = commentsByLiveset.value[livesetId] ?? [];
-                    for (const c of comments) {
-                        if (c.id === parentId) {
-                            c.replies = [...(c.replies ?? []), comment];
-                            break;
-                        }
-                    }
-                } else {
-                    // Add top-level comment
-                    const comments = commentsByLiveset.value[livesetId] ?? [];
-                    commentsByLiveset.value[livesetId] = [...comments, comment];
+                if (addCommentToState(livesetId, comment)) {
+                    commentCounts.value[livesetId] = (commentCounts.value[livesetId] ?? 0) + 1;
                 }
-
-                // Increment count
-                commentCounts.value[livesetId] = (commentCounts.value[livesetId] ?? 0) + 1;
 
                 return comment;
             }
@@ -127,6 +120,7 @@ export function useComments() {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                     'X-XSRF-TOKEN': getCsrfToken(),
+                    ...socketHeader(),
                 },
                 credentials: 'include',
                 body: JSON.stringify({ body }),
@@ -150,31 +144,15 @@ export function useComments() {
                 headers: {
                     'Accept': 'application/json',
                     'X-XSRF-TOKEN': getCsrfToken(),
+                    ...socketHeader(),
                 },
                 credentials: 'include',
             });
 
             if (response.ok) {
-                // Mark as deleted in state
-                const comments = commentsByLiveset.value[livesetId] ?? [];
-                for (const c of comments) {
-                    if (c.id === commentId) {
-                        c.is_deleted = true;
-                        c.body = null;
-                        break;
-                    }
-                    if (c.replies) {
-                        for (const r of c.replies) {
-                            if (r.id === commentId) {
-                                r.is_deleted = true;
-                                r.body = null;
-                                break;
-                            }
-                        }
-                    }
+                if (markDeletedInState(livesetId, commentId)) {
+                    commentCounts.value[livesetId] = Math.max(0, (commentCounts.value[livesetId] ?? 0) - 1);
                 }
-
-                commentCounts.value[livesetId] = Math.max(0, (commentCounts.value[livesetId] ?? 0) - 1);
                 return true;
             }
         } catch (error) {
@@ -201,26 +179,89 @@ export function useComments() {
         }
     }
 
-    function addBroadcastComment(livesetId: number, comment: Comment & { parent_id?: number }) {
+    /**
+     * Add a comment to the state unless it's already there (own post, or the same event twice).
+     * Comments for a liveset that isn't loaded yet only bump the count, a partial list would block ensureLoaded.
+     */
+    function addCommentToState(livesetId: number, comment: Comment): boolean {
+        const comments = commentsByLiveset.value[livesetId];
+        if (comments === undefined) {
+            return true;
+        }
+
         if (comment.parent_id) {
-            const comments = commentsByLiveset.value[livesetId] ?? [];
-            for (const c of comments) {
-                if (c.id === comment.parent_id) {
-                    const exists = c.replies?.some(r => r.id === comment.id);
-                    if (!exists) {
-                        c.replies = [...(c.replies ?? []), comment];
-                    }
-                    break;
-                }
+            const parent = comments.find(c => c.id === comment.parent_id);
+            if (!parent || parent.replies?.some(r => r.id === comment.id)) {
+                return false;
             }
-        } else {
-            const comments = commentsByLiveset.value[livesetId] ?? [];
-            const exists = comments.some(c => c.id === comment.id);
-            if (!exists) {
-                commentsByLiveset.value[livesetId] = [...comments, comment];
+            parent.replies = [...(parent.replies ?? []), comment];
+            return true;
+        }
+
+        if (comments.some(c => c.id === comment.id)) {
+            return false;
+        }
+        commentsByLiveset.value[livesetId] = [...comments, comment];
+        return true;
+    }
+
+    /**
+     * Turn a comment into a [deleted] placeholder, returns false if it already was one (or isn't loaded)
+     */
+    function markDeletedInState(livesetId: number, commentId: number): boolean {
+        for (const comment of commentsByLiveset.value[livesetId] ?? []) {
+            const target = comment.id === commentId ? comment : comment.replies?.find(r => r.id === commentId);
+            if (target) {
+                if (target.is_deleted) {
+                    return false;
+                }
+                target.is_deleted = true;
+                target.body = null;
+                return true;
             }
         }
-        commentCounts.value[livesetId] = (commentCounts.value[livesetId] ?? 0) + 1;
+        return false;
+    }
+
+    function addBroadcastComment(livesetId: number, comment: Comment) {
+        if (addCommentToState(livesetId, comment)) {
+            commentCounts.value[livesetId] = (commentCounts.value[livesetId] ?? 0) + 1;
+            lastIncomingComment.value = { livesetId, comment };
+        }
+    }
+
+    /**
+     * Follow new, edited and deleted comments of a liveset live. Ref-counted, every subscribe needs an unsubscribe.
+     */
+    function subscribeToLiveset(livesetId: number): void {
+        livesetSubscriptions[livesetId] = (livesetSubscriptions[livesetId] ?? 0) + 1;
+        if (livesetSubscriptions[livesetId] > 1) {
+            return;
+        }
+
+        echo().channel(`comments.liveset.${livesetId}`)
+            .listen('.comment.posted', (comment: Comment) => addBroadcastComment(livesetId, comment))
+            .listen('.comment.updated', (comment: Comment) => updateCommentInState(livesetId, comment))
+            .listen('.comment.deleted', (comment: Comment) => {
+                if (markDeletedInState(livesetId, comment.id)) {
+                    commentCounts.value[livesetId] = Math.max(0, (commentCounts.value[livesetId] ?? 0) - 1);
+                }
+            });
+    }
+
+    function unsubscribeFromLiveset(livesetId: number): void {
+        livesetSubscriptions[livesetId] = Math.max(0, (livesetSubscriptions[livesetId] ?? 0) - 1);
+        if (livesetSubscriptions[livesetId] === 0) {
+            echo().leaveChannel(`comments.liveset.${livesetId}`);
+        }
+    }
+
+    /**
+     * Lets the server skip broadcasting our own changes back to us (toOthers)
+     */
+    function socketHeader(): Record<string, string> {
+        const socketId = echo().socketId();
+        return socketId ? { 'X-Socket-ID': socketId } : {};
     }
 
     function getCsrfToken(): string {
@@ -242,5 +283,8 @@ export function useComments() {
         editComment,
         deleteComment,
         addBroadcastComment,
+        subscribeToLiveset,
+        unsubscribeFromLiveset,
+        lastIncomingComment,
     };
 }

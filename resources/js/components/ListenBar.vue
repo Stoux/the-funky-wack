@@ -69,13 +69,22 @@ const waveformContainer = useTemplateRef('waveform');
 const audioElement = useTemplateRef('audio');
 const commentsSheet = useTemplateRef('commentsSheet');
 
-// Comments for the playing set (waveform markers + bubble)
-const { ensureLoaded: ensureCommentsLoaded } = useComments();
-watch(() => currentLiveset.value?.id, (livesetId) => {
+// Comments for the playing set (waveform markers + bubble), followed live
+const { ensureLoaded: ensureCommentsLoaded, subscribeToLiveset, unsubscribeFromLiveset } = useComments();
+watch(() => currentLiveset.value?.id, (livesetId, previousLivesetId) => {
+    if (previousLivesetId) {
+        unsubscribeFromLiveset(previousLivesetId);
+    }
     if (livesetId) {
         ensureCommentsLoaded(livesetId);
+        subscribeToLiveset(livesetId);
     }
 }, { immediate: true });
+onBeforeUnmount(() => {
+    if (currentLiveset.value) {
+        unsubscribeFromLiveset(currentLiveset.value.id);
+    }
+});
 
 // Volume control
 const VOLUME_STORAGE_KEY = 'tfw-volume';
