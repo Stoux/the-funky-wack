@@ -101,6 +101,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('throttle:passkeys')->get('/passkeys/options', [PasskeyController::class, 'options']);
     Route::middleware('throttle:passkeys')->post('/passkeys', [PasskeyController::class, 'store']);
     // {id}, not {passkey}: the package binds that one globally, we look it up within the user's own passkeys
+    Route::patch('/passkeys/{id}', [PasskeyController::class, 'update'])->whereNumber('id');
     Route::delete('/passkeys/{id}', [PasskeyController::class, 'destroy'])->whereNumber('id');
 
     // Liked tracks

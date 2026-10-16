@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { router } from '@inertiajs/vue3';
-import { KeyRound, Trash2 } from 'lucide-vue-next';
+import { Check, KeyRound, Pencil, Trash2, X } from 'lucide-vue-next';
 import { Passkeys, PasskeyExistsError, UserCancelledError } from '@laravel/passkeys';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +66,36 @@ async function removePasskey(passkey: PasskeyRow) {
     }
 }
 
+// Renaming, inline
+const editingId = ref<number | null>(null);
+const editName = ref('');
+
+function startRename(passkey: PasskeyRow) {
+    editingId.value = passkey.id;
+    editName.value = passkey.name;
+    error.value = null;
+}
+
+async function saveRename(passkey: PasskeyRow) {
+    const trimmed = editName.value.trim();
+    if (!trimmed || trimmed === passkey.name) {
+        editingId.value = null;
+        return;
+    }
+    const response = await fetch(`/user/passkeys/${passkey.id}`, {
+        method: 'PATCH',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
+        credentials: 'include',
+        body: JSON.stringify({ name: trimmed }),
+    });
+    if (response.ok) {
+        editingId.value = null;
+        reloadPasskeys();
+    } else {
+        error.value = 'Renaming the passkey failed, try again.';
+    }
+}
+
 function formatDate(iso: string | null): string {
     return iso ? new Date(iso).toLocaleDateString() : 'never';
 }
@@ -84,7 +114,24 @@ function formatDate(iso: string | null): string {
             <div v-if="passkeys.length" class="divide-y rounded-lg border">
                 <div v-for="passkey in passkeys" :key="passkey.id" class="flex items-center gap-3 p-3">
                     <div class="min-w-0 flex-1">
-                        <div class="truncate font-medium">
+                        <form v-if="editingId === passkey.id" class="flex items-center gap-2" @submit.prevent="saveRename(passkey)">
+                            <Input
+                                v-model="editName"
+                                name="passkey_rename"
+                                aria-label="Passkey name"
+                                maxlength="255"
+                                class="h-8"
+                                autofocus
+                                @keydown.esc="editingId = null"
+                            />
+                            <Button type="submit" size="icon" variant="ghost" class="h-8 w-8 shrink-0" title="Save">
+                                <Check class="h-4 w-4" />
+                            </Button>
+                            <Button type="button" size="icon" variant="ghost" class="h-8 w-8 shrink-0" title="Cancel" @click="editingId = null">
+                                <X class="h-4 w-4" />
+                            </Button>
+                        </form>
+                        <div v-else class="truncate font-medium">
                             {{ passkey.name }}
                             <span v-if="passkey.authenticator" class="text-muted-foreground">· {{ passkey.authenticator }}</span>
                         </div>
@@ -92,6 +139,9 @@ function formatDate(iso: string | null): string {
                             Added {{ formatDate(passkey.created_at) }} · last used {{ formatDate(passkey.last_used_at) }}
                         </div>
                     </div>
+                    <Button v-if="editingId !== passkey.id" variant="ghost" size="icon" class="h-8 w-8" :title="`Rename ${passkey.name}`" @click="startRename(passkey)">
+                        <Pencil class="h-4 w-4" />
+                    </Button>
                     <ConfirmDialog
                         title="Remove this passkey?"
                         :description="`You can't sign in with '${passkey.name}' anymore after this.`"

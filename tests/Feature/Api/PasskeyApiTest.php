@@ -161,6 +161,24 @@ describe('managing passkeys from the app', function () {
             ->and(Passkey::find($theirs->id))->not->toBeNull();
     });
 
+    it('renames your own passkeys only, from the app and the website', function () {
+        $mine = apiPasskey($this->user, 'Pixel 8');
+        $theirs = apiPasskey(User::factory()->create(), 'Not mine');
+
+        $this->actingAs($this->user, 'sanctum')->patchJson("/api/passkeys/{$mine->id}", ['name' => 'Work phone'])
+            ->assertOk()
+            ->assertJsonPath('passkey.name', 'Work phone');
+        $this->actingAs($this->user, 'sanctum')->patchJson("/api/passkeys/{$theirs->id}", ['name' => 'Hijacked'])->assertNotFound();
+        $this->actingAs($this->user, 'sanctum')->patchJson("/api/passkeys/{$mine->id}", ['name' => ''])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('name');
+
+        $this->actingAs($this->user, 'web')->patchJson("/user/passkeys/{$mine->id}", ['name' => 'MacBook'])->assertOk();
+
+        expect($mine->fresh()->name)->toBe('MacBook')
+            ->and($theirs->fresh()->name)->toBe('Not mine');
+    });
+
     it('tells the app whether you have a passkey', function () {
         $this->actingAs($this->user, 'sanctum')->getJson('/api/auth/user')->assertJsonPath('has_passkeys', false);
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\RenamePasskeyRequest;
 use App\Http\Requests\StorePasskeyRequest;
 use App\Services\PasskeyChallenges;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +17,7 @@ use Throwable;
 use Webauthn\PublicKeyCredentialCreationOptions;
 
 /**
- * The user's passkeys, for the app (Bearer token). The web uses the package's session routes.
+ * The user's passkeys, for the app (Bearer token). The web uses the package's session routes, plus update() here.
  */
 class PasskeyController extends Controller
 {
@@ -60,6 +61,17 @@ class PasskeyController extends Controller
         }
 
         return response()->json(['passkey' => $this->format($passkey)], 201);
+    }
+
+    /**
+     * Rename, which laravel/passkeys doesn't do. Also used by the web profile (session auth).
+     */
+    public function update(RenamePasskeyRequest $request, int $id): JsonResponse
+    {
+        $passkey = $request->user()->passkeys()->findOrFail($id);
+        $passkey->update(['name' => $request->validated('name')]);
+
+        return response()->json(['passkey' => $this->format($passkey)]);
     }
 
     public function destroy(Request $request, DeletePasskey $delete, int $id): JsonResponse

@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\LivesetFilesController;
 use App\Http\Controllers\Admin\TrackController as AdminTrackController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\UtilController;
+use App\Http\Controllers\Api\PasskeyController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ListController;
@@ -38,6 +39,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/history', [UserController::class, 'history'])->name('user.history');
     Route::get('/favorites', [UserController::class, 'favorites'])->name('user.favorites');
     Route::get('/liked-tracks', fn () => Inertia\Inertia::render('User/LikedTracks'))->name('user.liked-tracks');
+    Route::patch('/user/passkeys/{id}', [PasskeyController::class, 'update'])->whereNumber('id')->name('user.passkeys.update');
     Route::get('/devices', [UserController::class, 'devices'])->name('user.devices');
     Route::get('/link', [UserController::class, 'linkDevice'])->name('user.link-device');
     Route::get('/notifications', fn () => Inertia\Inertia::render('User/Notifications'))->name('user.notifications');
