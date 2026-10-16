@@ -193,7 +193,7 @@ defineExpose({ open, openAtTimestamp });
                 </Button>
             </div>
 
-            <ScrollArea class="h-full flex-1 overflow-y-auto">
+            <ScrollArea class="flex-1 min-h-0">
                 <div class="flex flex-col px-4">
                     <CommentItem
                         v-for="comment in comments"

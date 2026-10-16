@@ -18,6 +18,8 @@ import {ScrollArea} from "@/components/ui/scroll-area";
 import {useTemplateRefsList} from "@vueuse/core";
 import {useTracklistNowPlaying} from "@/composables/useTracklistNowPlaying";
 import {useNowPlayingState} from "@/composables/useNowPlayingState";
+import {useAudioPlayer} from "@/composables/useAudioPlayer";
+import {useEditions} from "@/composables/useEditions";
 
 const props = defineProps<{
     liveset: Liveset;
@@ -109,13 +111,21 @@ watch(isOpen, open => {
     });
 });
 
+const { playLiveset } = useAudioPlayer();
+const { findLivesetById } = useEditions();
+
 function goToTime(timestamp: number) {
-    if (!isCurrentLiveset.value) {
+    if (isCurrentLiveset.value) {
+        // This will also start playing the track if not already playing.
+        currentTime.value = timestamp;
         return;
     }
 
-    // This will also start playing the track if not already playing.
-    currentTime.value = timestamp;
+    // Another set: start it at this track
+    const result = findLivesetById(props.liveset.id);
+    if (result) {
+        playLiveset(result.edition, result.liveset, undefined, timestamp);
+    }
 }
 
 function open() {
@@ -135,7 +145,7 @@ defineExpose({ open });
                 <ListMusic class="h-4 w-4" />
             </Button>
         </SheetTrigger>
-        <SheetContent>
+        <SheetContent class="w-[90%] sm:max-w-md">
             <SheetHeader>
                 <SheetTitle>Tracklist</SheetTitle>
                 <SheetDescription>
@@ -143,16 +153,18 @@ defineExpose({ open });
                 </SheetDescription>
             </SheetHeader>
 
-            <ScrollArea class="h-full flex-1 overflow-y-auto" ref="scrollContainer">
-                <div class="flex flex-col" v-if="liveset.tracks?.length" ref="listDiv">
-                    <div class="px-4 py-2" v-for="(track, index) of liveset.tracks" :key="track.id" ref="trackElements">
+            <!-- min-h-0 instead of h-full: a percentage height on a flex child cuts off the end of the list in Safari -->
+            <ScrollArea class="flex-1 min-h-0" ref="scrollContainer">
+                <div class="flex flex-col px-2" v-if="liveset.tracks?.length" ref="listDiv">
+                    <div v-for="(track, index) of liveset.tracks" :key="track.id" ref="trackElements"
+                         class="px-2 py-2 rounded-md"
+                         :class="{ 'cursor-pointer hover:bg-muted/50 transition-colors': track.timestamp !== null }"
+                         @click="track.timestamp !== null && goToTime(track.timestamp)">
                         <div :class="{
                                  'text-green-600 js-now-playing': index === primaryNowPlayingIndex,
                                  'text-green-600/60': nowPlayingIndices.has(index) && index !== primaryNowPlayingIndex,
                                  'text-muted-foreground': !nowPlayingIndices.has(index),
-                                 'cursor-pointer': index !== undefined,
                              }"
-                             @click="goToTime(track.timestamp ?? 0)"
                              v-if="track.timestamp !== null">
                             #{{ track.order }} &bull; {{ formatDuration(track.timestamp)}}
                         </div>
