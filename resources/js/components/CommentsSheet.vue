@@ -26,7 +26,7 @@ const props = defineProps<{
 }>();
 
 const { isAuthenticated } = useAuth();
-const { fetchComments, getComments, postComment, getCommentCount, subscribeToLiveset, unsubscribeFromLiveset } = useComments();
+const { fetchComments, getComments, postComment, getCommentCount, isFollowing, subscribeToLiveset, unsubscribeFromLiveset } = useComments();
 const { currentTime, currentLiveset } = useNowPlayingState();
 
 const isOpen = ref(false);
@@ -86,22 +86,22 @@ function onTimestampInput(value: string) {
     }
 }
 
-// Refetch on every open, changes while closed weren't followed live
-watch(isOpen, async (open) => {
-    if (open) {
-        await fetchComments(props.liveset.id, sortBy.value);
-        loaded.value = true;
-    }
-});
-
-// Follow the liveset live while the sheet is open
-watch([isOpen, () => props.liveset.id], ([open, livesetId], [wasOpen, previousLivesetId]) => {
+// Follow the liveset live while the sheet is open. Refetch first unless it was already followed
+// (e.g. the playing set), changes while nobody listened would be missing otherwise.
+watch([isOpen, () => props.liveset.id], async ([open, livesetId], [wasOpen, previousLivesetId]) => {
     if (wasOpen && previousLivesetId) {
         unsubscribeFromLiveset(previousLivesetId);
     }
-    if (open) {
-        subscribeToLiveset(livesetId);
+    if (!open) {
+        return;
     }
+
+    const wasFollowed = isFollowing(livesetId);
+    subscribeToLiveset(livesetId);
+    if (!wasFollowed || getComments(livesetId).length === 0) {
+        await fetchComments(livesetId);
+    }
+    loaded.value = true;
 });
 onBeforeUnmount(() => {
     if (isOpen.value) {

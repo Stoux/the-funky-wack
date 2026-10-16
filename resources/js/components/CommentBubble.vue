@@ -19,6 +19,8 @@ const activeComment = ref<{
 const visible = ref(false);
 let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 let lastShownId: number | null = null;
+// Shown live when it was posted, the playhead shouldn't show it again right after
+let liveShownId: number | null = null;
 
 const allComments = computed(() => {
     const comments = getComments(props.livesetId);
@@ -59,7 +61,7 @@ function showBubble(comment: { userId: number; name: string; body: string }) {
 watch(() => props.currentTime, (time) => {
     const match = allComments.value.find(c => Math.abs(c.timestamp - time) < 1);
 
-    if (match && match.id !== lastShownId) {
+    if (match && match.id !== lastShownId && match.id !== liveShownId) {
         lastShownId = match.id;
         showBubble(match);
     }
@@ -68,6 +70,7 @@ watch(() => props.currentTime, (time) => {
 // Someone else just posted on this set
 watch(lastIncomingComment, (incoming) => {
     if (incoming?.livesetId === props.livesetId && incoming.comment.body) {
+        liveShownId = incoming.comment.id;
         showBubble({
             userId: incoming.comment.user?.id ?? 0,
             name: incoming.comment.user?.name ?? '?',

@@ -96,16 +96,12 @@ class CommentController extends Controller
             ->limit(50)
             ->get()
             ->map(fn (Comment $comment) => [
-                'id' => $comment->id,
-                'user' => $comment->user ? ['id' => $comment->user->id, 'name' => $comment->user->name] : null,
+                ...$comment->toBroadcastPayload(),
                 'liveset' => $comment->liveset ? [
                     'id' => $comment->liveset->id,
                     'title' => $comment->liveset->title,
                     'artist_name' => $comment->liveset->artist_name,
                 ] : null,
-                'body' => $comment->body,
-                'timestamp_seconds' => $comment->timestamp_seconds,
-                'created_at' => $comment->created_at->toIso8601String(),
             ]);
 
         return response()->json(['comments' => $comments]);

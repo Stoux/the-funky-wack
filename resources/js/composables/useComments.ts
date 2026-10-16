@@ -5,6 +5,7 @@ import type { Comment } from '@/types';
 
 // Shared state across all components
 const commentsByLiveset = ref<Record<number, Comment[]>>({});
+// comments_count from the editions data, used until a liveset's comments are loaded
 const commentCounts = ref<Record<number, number>>({});
 
 // Latest comment someone else posted while we were subscribed (drives the live bubble)
@@ -36,8 +37,19 @@ export function useComments() {
         }
     }
 
+    /**
+     * Same as the server's comments_count: everything that isn't deleted, replies included.
+     * Derived from the loaded list, so it can't drift from what's shown.
+     */
     function getCommentCount(livesetId: number): number {
-        return commentCounts.value[livesetId] ?? 0;
+        const comments = commentsByLiveset.value[livesetId];
+        if (comments === undefined) {
+            return commentCounts.value[livesetId] ?? 0;
+        }
+        return comments.reduce(
+            (total, comment) => total + (comment.is_deleted ? 0 : 1) + (comment.replies ?? []).filter(reply => !reply.is_deleted).length,
+            0,
+        );
     }
 
     function getComments(livesetId: number): Comment[] {
@@ -50,23 +62,35 @@ export function useComments() {
         }
     }
 
-    async function fetchComments(livesetId: number, sort?: 'timestamp' | 'date'): Promise<Comment[]> {
+    function isFollowing(livesetId: number): boolean {
+        return (livesetSubscriptions[livesetId] ?? 0) > 0;
+    }
+
+    async function fetchComments(livesetId: number): Promise<void> {
+        const idsBeforeFetch = new Set(flatten(commentsByLiveset.value[livesetId] ?? []).map(comment => comment.id));
+
         try {
-            const params = sort === 'date' ? '?sort=date' : '';
-            const response = await fetch(`/api/livesets/${livesetId}/comments${params}`, {
+            const response = await fetch(`/api/livesets/${livesetId}/comments`, {
                 headers: { 'Accept': 'application/json' },
                 credentials: 'include',
             });
 
             if (response.ok) {
                 const data = await response.json();
-                commentsByLiveset.value[livesetId] = data.comments;
-                return data.comments;
+                const fetched: Comment[] = data.comments;
+                const fetchedIds = new Set(flatten(fetched).map(comment => comment.id));
+
+                // Comments posted or broadcast while the request was in flight aren't in the response yet
+                const addedInFlight = flatten(commentsByLiveset.value[livesetId] ?? [])
+                    .filter(comment => !idsBeforeFetch.has(comment.id) && !fetchedIds.has(comment.id))
+                    .sort((a, b) => a.id - b.id);
+
+                commentsByLiveset.value[livesetId] = fetched;
+                addedInFlight.forEach(comment => applyServerState(livesetId, comment));
             }
         } catch (error) {
             console.error('Failed to fetch comments:', error);
         }
-        return [];
     }
 
     async function postComment(
@@ -98,9 +122,8 @@ export function useComments() {
 
             if (response.ok) {
                 const data = await response.json();
-                const comment: Comment = data.comment;
-                addComment(livesetId, comment);
-                return comment;
+                applyServerState(livesetId, data.comment);
+                return data.comment;
             }
         } catch (error) {
             console.error('Failed to post comment:', error);
@@ -124,7 +147,7 @@ export function useComments() {
 
             if (response.ok) {
                 const data = await response.json();
-                updateCommentInState(livesetId, data.comment);
+                applyServerState(livesetId, data.comment);
                 return true;
             }
         } catch (error) {
@@ -146,7 +169,10 @@ export function useComments() {
             });
 
             if (response.ok) {
-                removeComment(livesetId, commentId);
+                const existing = findComment(livesetId, commentId);
+                if (existing) {
+                    applyServerState(livesetId, { ...existing, is_deleted: true, body: null });
+                }
                 return true;
             }
         } catch (error) {
@@ -155,100 +181,62 @@ export function useComments() {
         return false;
     }
 
-    function bumpCount(livesetId: number, delta: number) {
-        commentCounts.value[livesetId] = Math.max(0, (commentCounts.value[livesetId] ?? 0) + delta);
+    function flatten(comments: Comment[]): Comment[] {
+        return comments.flatMap(comment => [comment, ...(comment.replies ?? [])]);
     }
 
     function findComment(livesetId: number, commentId: number): Comment | undefined {
-        for (const comment of commentsByLiveset.value[livesetId] ?? []) {
-            if (comment.id === commentId) {
-                return comment;
-            }
-            const reply = comment.replies?.find(r => r.id === commentId);
-            if (reply) {
-                return reply;
-            }
-        }
-        return undefined;
+        return flatten(commentsByLiveset.value[livesetId] ?? []).find(comment => comment.id === commentId);
     }
 
     /**
-     * Broadcast payloads carry no per-user is_own, derive it
+     * Bring one comment in line with the server's state of it. Broadcasts are queued and built from the row at
+     * send time, so a payload can be newer than its event name: trust is_deleted, not which event it came in.
+     * Deleting follows the index endpoint: a top-level comment without replies disappears, anything else
+     * becomes a [deleted] placeholder. Returns whether the comment was new.
      */
-    function withOwnership(comment: Comment): Comment {
-        return { ...comment, is_own: !!user.value && comment.user?.id === user.value.id };
-    }
-
-    function updateCommentInState(livesetId: number, updated: Comment) {
-        const existing = findComment(livesetId, updated.id);
-        if (existing) {
-            Object.assign(existing, updated);
-        }
-    }
-
-    /**
-     * Add a comment and bump the count, unless it's already there (own post, or the same event twice).
-     * For a liveset that isn't loaded yet only the count changes, a partial list would block ensureLoaded.
-     */
-    function addComment(livesetId: number, comment: Comment): boolean {
-        const comments = commentsByLiveset.value[livesetId];
-        if (comments !== undefined) {
-            if (comment.parent_id) {
-                const parent = comments.find(c => c.id === comment.parent_id);
-                if (!parent || parent.replies?.some(r => r.id === comment.id)) {
-                    return false;
-                }
-                parent.replies = [...(parent.replies ?? []), comment];
-            } else {
-                if (comments.some(c => c.id === comment.id)) {
-                    return false;
-                }
-                commentsByLiveset.value[livesetId] = [...comments, comment];
-            }
-        }
-        bumpCount(livesetId, 1);
-        return true;
-    }
-
-    /**
-     * Same as the index endpoint: a top-level comment without replies disappears,
-     * anything else becomes a [deleted] placeholder. The count drops once.
-     */
-    function removeComment(livesetId: number, commentId: number): void {
+    function applyServerState(livesetId: number, payload: Comment): boolean {
         const comments = commentsByLiveset.value[livesetId];
         if (comments === undefined) {
-            bumpCount(livesetId, -1);
-            return;
+            // Not loaded, the first fetch brings it in
+            return false;
         }
 
-        const comment = findComment(livesetId, commentId);
-        if (!comment || comment.is_deleted) {
-            return;
+        const existing = findComment(livesetId, payload.id);
+
+        if (payload.is_deleted) {
+            if (!existing) {
+                return false;
+            }
+            const isTopLevel = comments.some(comment => comment.id === payload.id);
+            if (isTopLevel && !existing.replies?.length) {
+                commentsByLiveset.value[livesetId] = comments.filter(comment => comment.id !== payload.id);
+            } else {
+                existing.is_deleted = true;
+                existing.body = null;
+            }
+            return false;
         }
 
-        const isTopLevel = comments.some(c => c.id === commentId);
-        if (isTopLevel && !comment.replies?.length) {
-            commentsByLiveset.value[livesetId] = comments.filter(c => c.id !== commentId);
+        if (existing) {
+            Object.assign(existing, payload);
+            return false;
+        }
+
+        // Broadcast payloads carry no per-user is_own, derive it
+        const comment: Comment = { ...payload, is_own: !!user.value && payload.user?.id === user.value.id };
+        if (comment.parent_id) {
+            const parent = comments.find(c => c.id === comment.parent_id);
+            if (!parent) {
+                // Parent was dropped locally (deleted while this reply was written), the server still shows it
+                fetchComments(livesetId);
+                return false;
+            }
+            parent.replies = [...(parent.replies ?? []), comment];
         } else {
-            comment.is_deleted = true;
-            comment.body = null;
+            commentsByLiveset.value[livesetId] = [...comments, comment];
         }
-        bumpCount(livesetId, -1);
-    }
-
-    /**
-     * Un-delete the placeholder, or add the comment back if it had been dropped
-     */
-    function restoreComment(livesetId: number, restored: Comment): void {
-        const existing = findComment(livesetId, restored.id);
-        if (!existing) {
-            addComment(livesetId, withOwnership(restored));
-            return;
-        }
-        if (existing.is_deleted) {
-            Object.assign(existing, restored);
-            bumpCount(livesetId, 1);
-        }
+        return true;
     }
 
     /**
@@ -260,20 +248,18 @@ export function useComments() {
             return;
         }
 
+        const applyPayload = (payload: Comment) => applyServerState(livesetId, payload);
+
         echo().channel(`comments.liveset.${livesetId}`)
             .listen('.comment.posted', (payload: Comment) => {
-                // The queued payload is built from the current row, a quick delete can beat it
-                if (payload.is_deleted) {
-                    return;
-                }
-                const comment = withOwnership(payload);
-                if (addComment(livesetId, comment) && !comment.is_own) {
-                    lastIncomingComment.value = { livesetId, comment };
+                const isOwn = !!user.value && payload.user?.id === user.value.id;
+                if (applyServerState(livesetId, payload) && !isOwn) {
+                    lastIncomingComment.value = { livesetId, comment: payload };
                 }
             })
-            .listen('.comment.updated', (payload: Comment) => updateCommentInState(livesetId, payload))
-            .listen('.comment.deleted', (payload: Comment) => removeComment(livesetId, payload.id))
-            .listen('.comment.restored', (payload: Comment) => restoreComment(livesetId, payload));
+            .listen('.comment.updated', applyPayload)
+            .listen('.comment.deleted', applyPayload)
+            .listen('.comment.restored', applyPayload);
     }
 
     function unsubscribeFromLiveset(livesetId: number): void {
@@ -300,11 +286,11 @@ export function useComments() {
 
     return {
         commentsByLiveset,
-        commentCounts,
         initializeCommentCounts,
         getCommentCount,
         getComments,
         ensureLoaded,
+        isFollowing,
         fetchComments,
         postComment,
         editComment,

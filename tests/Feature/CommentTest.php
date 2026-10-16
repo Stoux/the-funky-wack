@@ -317,6 +317,26 @@ describe('DELETE /api/comments/{comment}', function () {
     });
 });
 
+describe('GET /api/comments/recent', function () {
+    it('returns the latest comments in the shared shape with their liveset, without deleted ones', function () {
+        $older = Comment::factory()->create(['liveset_id' => $this->liveset->id, 'created_at' => now()->subMinute()]);
+        $newer = Comment::factory()->create(['liveset_id' => $this->liveset->id]);
+        Comment::factory()->create(['liveset_id' => $this->liveset->id])->delete();
+
+        $response = $this->getJson('/api/comments/recent');
+
+        $response->assertOk()->assertJsonCount(2, 'comments');
+        expect($response->json('comments.0'))->toMatchArray([
+            ...$newer->fresh()->toBroadcastPayload(),
+            'liveset' => [
+                'id' => $this->liveset->id,
+                'title' => $this->liveset->title,
+                'artist_name' => $this->liveset->artist_name,
+            ],
+        ])->and($response->json('comments.1.id'))->toBe($older->id);
+    });
+});
+
 describe('realtime comment events', function () {
     it('broadcasts posts, edits and deletes to others on the public liveset channel', function () {
         Event::fake([CommentPosted::class, CommentUpdated::class, CommentDeleted::class]);
