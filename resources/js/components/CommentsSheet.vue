@@ -226,6 +226,7 @@ defineExpose({ open, openAtTimestamp });
                     <input
                         v-else
                         type="text"
+                        name="timestamp"
                         inputmode="numeric"
                         aria-label="Comment timestamp"
                         title="Timestamp (mm:ss)"
@@ -243,6 +244,8 @@ defineExpose({ open, openAtTimestamp });
                 <div class="flex gap-2">
                     <textarea
                         v-model="newBody"
+                        name="comment"
+                        aria-label="Comment"
                         placeholder="Write a comment..."
                         class="flex-1 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
                         rows="2"

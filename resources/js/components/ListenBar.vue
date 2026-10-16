@@ -483,6 +483,8 @@ function handleWaveformClick(): void {
                 </Button>
                 <input
                     type="range"
+                    name="volume"
+                    aria-label="Volume"
                     min="0"
                     max="1"
                     step="0.01"

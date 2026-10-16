@@ -91,6 +91,8 @@ async function handleDelete() {
                     <div v-if="isEditing" class="mt-1">
                         <textarea
                             v-model="editBody"
+                            name="comment"
+                            aria-label="Edit comment"
                             class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
                             rows="2"
                             maxlength="2000"
