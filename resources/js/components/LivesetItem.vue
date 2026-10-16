@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import {formatDuration} from "@/lib/utils";
-import {Pause, Play, MoreVertical, ListMusic, FileText, Share2, ListPlus, ListEnd, CheckCircle, MessageCircle} from "lucide-vue-next";
+import {Pause, Play, MoreVertical, ListMusic, FileText, Share2, ListPlus, ListEnd, CheckCircle, MessageCircle, Download} from "lucide-vue-next";
 import {Button, type ButtonVariants} from "@/components/ui/button";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import CommentsSheet from "@/components/CommentsSheet.vue";
@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {useQueue} from "@/composables/useQueue";
+import {useAuth} from "@/composables/useAuth";
 
 const emit = defineEmits<{
     (e: 'play', quality?: LivesetQuality): void,
@@ -51,6 +52,31 @@ const addToPlaylistRef = ref<InstanceType<typeof AddToPlaylistButton> | null>(nu
 const { addToQueue, queueItems } = useQueue();
 const justAddedToQueue = ref(false);
 const isInQueue = computed(() => queueItems.value.some(item => item.livesetId === props.liveset.id));
+
+// Downloads, only offered to logged in users so they aren't promoted publicly
+const { isAuthenticated } = useAuth();
+const downloadLabels: Record<LivesetQuality, string> = { lq: 'LQ', hq: 'HQ', lossless: 'WAV' };
+
+const downloads = computed(() => {
+    const files = props.liveset.files;
+    if (!isAuthenticated.value || !files) {
+        return [];
+    }
+
+    const name = `${props.liveset.artist_name} - ${props.liveset.title} (TFW #${props.edition.number})`.replace(/[\\/:*?"<>|]/g, '');
+
+    return (Object.keys(downloadLabels) as LivesetQuality[])
+        .filter(quality => files[quality])
+        .map(quality => {
+            const url = files[quality]!;
+            const extension = new URL(url, window.location.origin).pathname.split('.').pop();
+            return {
+                url,
+                label: downloadLabels[quality],
+                filename: `${name} [${downloadLabels[quality]}].${extension}`,
+            };
+        });
+});
 
 function handleAddToQueue() {
     const added = addToQueue(props.liveset.id, { type: 'edition', editionId: props.edition.id });
@@ -182,6 +208,17 @@ function handleAddToQueue() {
                         <Share2 class="h-4 w-4 mr-2" />
                         Share
                     </DropdownMenuItem>
+
+                    <template v-if="downloads.length">
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Download</DropdownMenuLabel>
+                        <DropdownMenuItem v-for="download in downloads" :key="download.url" as-child>
+                            <a :href="download.url" :download="download.filename">
+                                <Download class="h-4 w-4 mr-2" />
+                                {{ download.label }}
+                            </a>
+                        </DropdownMenuItem>
+                    </template>
                 </DropdownMenuContent>
             </DropdownMenu>
         </div>
