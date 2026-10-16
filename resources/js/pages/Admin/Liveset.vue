@@ -360,9 +360,9 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
             </form>
 
             <div v-if="trackAliases?.length" class="rounded-xl border border-sidebar-border/70 p-4 dark:border-sidebar-border">
-                <h2 class="text-lg font-semibold">Track links</h2>
+                <h2 class="text-lg font-semibold">Songs in this set</h2>
                 <p class="text-sm text-muted-foreground">
-                    Which track each line stands for. A fix applies to every set with the exact same line.
+                    Which song each tracklist line stands for. A fix applies to every set with the exact same line.
                 </p>
                 <div class="divide-y">
                     <TrackAliasRow v-for="alias in trackAliases" :key="alias.id" :alias="alias" />

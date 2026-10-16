@@ -36,6 +36,23 @@ describe('admin tracks page', function () {
                 ->where('aliases.data.0.livesets.0.title', 'Moeilijke UK Shit'));
     });
 
+    it('shows how many lines use each song, and the lines per song', function () {
+        $liveset = Liveset::factory()->create(['title' => 'Stambak & Co House']);
+        $liveset->tracks()->create(['title' => 'Flowdan, Sammy Virji - Shella Verse', 'timestamp' => 0, 'order' => 1]);
+        $this->linker->link('Sammy Virji & Flowdan - Shella Verse (Extended Mix)');
+
+        asAdmin()->get(route('admin.tracks'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('aliases.data.0.tracks.0.lines_count', 2));
+
+        asAdmin()->get(route('admin.tracks', ['filter' => 'tracks']))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('tracks.data', 1)
+                ->has('tracks.data.0.lines', 2)
+                ->where('tracks.data.0.lines.0.text', 'Flowdan, Sammy Virji - Shella Verse')
+                ->where('tracks.data.0.lines.0.livesets', ['Stambak & Co House']));
+    });
+
     it('shows tracks with the same title as possible duplicates', function () {
         $this->linker->link('Flowdan - Shella Verse');
         $this->linker->link('Flowdan & Sammy Virji - Shella Verse');

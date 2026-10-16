@@ -89,7 +89,7 @@ function submit() {
 
             <div class="flex flex-col gap-3">
                 <div v-if="selected.length" class="flex flex-col gap-1">
-                    <Label>{{ mode === 'merge' ? 'Merge into' : selected.length > 1 ? 'Linked tracks (mashup, in order)' : 'Linked track' }}</Label>
+                    <Label>{{ mode === 'merge' ? 'Merge into' : selected.length > 1 ? 'Songs for this line (mashup, in order)' : 'Song for this line' }}</Label>
                     <div v-for="(track, index) in selected" :key="track.id" class="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">
                         <span class="flex-1 truncate">{{ track.name }}</span>
                         <Button v-if="mode === 'link' && index > 0" variant="ghost" size="icon" class="h-6 w-6" title="Move up" @click="moveUp(index)">
@@ -101,7 +101,8 @@ function submit() {
                     </div>
                 </div>
 
-                <Input v-model="search" name="track_search" placeholder="Search artist or title..." aria-label="Search tracks" />
+                <Label>{{ mode === 'merge' ? 'Find the song to keep' : 'Add an existing song (add more for a mashup)' }}</Label>
+                <Input v-model="search" name="track_search" placeholder="Search artist or title..." aria-label="Search songs" />
                 <div class="max-h-56 overflow-y-auto rounded-md border divide-y">
                     <button
                         v-for="track in results"
@@ -113,15 +114,15 @@ function submit() {
                         <Plus class="h-3 w-3 shrink-0 text-muted-foreground" />
                         <span class="truncate">{{ track.name }}</span>
                     </button>
-                    <div v-if="!results.length" class="px-3 py-2 text-sm text-muted-foreground">No tracks found</div>
+                    <div v-if="!results.length" class="px-3 py-2 text-sm text-muted-foreground">No songs found</div>
                 </div>
 
                 <div v-if="mode === 'link'" class="flex flex-col gap-1">
-                    <Label>Or add a new track</Label>
+                    <Label>Or a song that isn't in the list yet</Label>
                     <div class="grid grid-cols-3 gap-2">
-                        <Input v-model="newTrack.artist" name="artist" placeholder="Artist" aria-label="New track artist" />
-                        <Input v-model="newTrack.title" name="title" placeholder="Title" aria-label="New track title" />
-                        <Input v-model="newTrack.version" name="version" placeholder="Version (optional)" aria-label="New track version" />
+                        <Input v-model="newTrack.artist" name="artist" placeholder="Artist" aria-label="New song artist" />
+                        <Input v-model="newTrack.title" name="title" placeholder="Title" aria-label="New song title" />
+                        <Input v-model="newTrack.version" name="version" placeholder="Version, e.g. X Remix" aria-label="New song version" />
                     </div>
                 </div>
             </div>
@@ -129,7 +130,7 @@ function submit() {
             <DialogFooter>
                 <Button variant="outline" @click="open = false">Cancel</Button>
                 <Button :disabled="mode === 'merge' ? !selected.length : !selected.length && !hasNewTrack()" @click="submit">
-                    {{ mode === 'merge' ? 'Merge' : 'Link' }}
+                    {{ mode === 'merge' ? 'Merge' : 'Save' }}
                 </Button>
             </DialogFooter>
         </DialogContent>

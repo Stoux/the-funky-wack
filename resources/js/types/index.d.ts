@@ -223,7 +223,8 @@ export interface AdminTrack {
     version: string | null;
     slug: string;
     name: string;
-    aliases_count?: number;
+    lines_count: number | null;
+    lines?: { id: number; text: string; livesets: string[] }[];
 }
 
 export interface AdminTrackAlias {

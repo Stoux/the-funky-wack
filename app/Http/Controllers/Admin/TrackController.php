@@ -51,6 +51,7 @@ class TrackController extends Controller
         $search = trim((string) $request->query('q', ''));
 
         $tracks = Track::query()
+            ->withCount('aliases')
             ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
                 ->where('artist', 'like', "%{$search}%")
                 ->orWhere('title', 'like', "%{$search}%")))
@@ -116,6 +117,8 @@ class TrackController extends Controller
             'version' => $track->version,
             'slug' => $track->slug,
             'name' => $track->displayName(),
+            // How many tracklist lines use this song, 1 means it was made from (or only fits) this line
+            'lines_count' => $track->aliases_count,
         ];
     }
 
@@ -149,7 +152,7 @@ class TrackController extends Controller
         return TrackAlias::query()
             ->where('status', $status)
             ->when($search !== '', fn ($query) => $query->where('text', 'like', "%{$search}%"))
-            ->with(['tracks', 'livesetTracks.liveset:id,title'])
+            ->with(['tracks' => fn ($query) => $query->withCount('aliases'), 'livesetTracks.liveset:id,title'])
             ->orderBy('text')
             ->paginate(50)
             ->withQueryString()
@@ -163,11 +166,19 @@ class TrackController extends Controller
                 ->where('artist', 'like', "%{$search}%")
                 ->orWhere('title', 'like', "%{$search}%")))
             ->withCount('aliases')
+            ->with('aliases.livesetTracks.liveset:id,title')
             ->orderBy('artist')
             ->orderBy('title')
             ->paginate(50)
             ->withQueryString()
-            ->through(fn (Track $track) => [...self::formatTrack($track), 'aliases_count' => $track->aliases_count]);
+            ->through(fn (Track $track) => [
+                ...self::formatTrack($track),
+                'lines' => $track->aliases->map(fn (TrackAlias $alias) => [
+                    'id' => $alias->id,
+                    'text' => $alias->text,
+                    'livesets' => $alias->livesetTracks->pluck('liveset')->filter()->unique('id')->pluck('title')->values(),
+                ])->values(),
+            ]);
     }
 
     /**
@@ -178,6 +189,7 @@ class TrackController extends Controller
     private function duplicateGroups(): Collection
     {
         return Track::query()
+            ->withCount('aliases')
             ->get()
             ->groupBy(fn (Track $track) => explode('|', $track->match_key, 2)[1] ?? '')
             ->filter(fn (Collection $group, string $key) => $group->count() > 1 && $key !== '|')

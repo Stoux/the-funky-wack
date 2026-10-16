@@ -20,7 +20,7 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
-        title: 'Tracks',
+        title: 'Songs',
         href: route('admin.tracks'),
         icon: Music,
     },

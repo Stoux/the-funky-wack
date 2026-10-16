@@ -113,7 +113,7 @@ class LivesetController extends Controller
         $editions = Edition::orderBy('date', 'desc')->get();
 
         // Load the liveset with its tracks
-        $liveset->load('tracks.alias.tracks');
+        $liveset->load(['tracks.alias.tracks' => fn ($query) => $query->withCount('aliases')]);
 
         // The links of each line, for reviewing them right here
         $trackAliases = $liveset->tracks

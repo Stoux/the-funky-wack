@@ -29,17 +29,17 @@ const props = defineProps<{
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Tracks',
+        title: 'Songs',
         href: route('admin.tracks'),
     },
 ];
 
 const tabs: { filter: Filter; label: string }[] = [
-    { filter: 'review', label: 'To review' },
-    { filter: 'unknown', label: 'Unknown' },
-    { filter: 'reviewed', label: 'Reviewed' },
-    { filter: 'tracks', label: 'All tracks' },
-    { filter: 'duplicates', label: 'Possible duplicates' },
+    { filter: 'review', label: 'Lines to review' },
+    { filter: 'unknown', label: 'Unknown lines' },
+    { filter: 'reviewed', label: 'Reviewed lines' },
+    { filter: 'tracks', label: 'All songs' },
+    { filter: 'duplicates', label: 'Possible duplicate songs' },
 ];
 
 const search = ref(props.search);
@@ -53,7 +53,7 @@ watch(search, value => {
     }, 300);
 });
 
-// Merging: the source track, the picker gives the target
+// Merging: the source song, the picker gives the one to keep
 const mergeSource = ref<AdminTrack | null>(null);
 const mergeOpen = ref(false);
 
@@ -78,14 +78,21 @@ const paginated = computed(() => props.aliases ?? props.tracks);
 </script>
 
 <template>
-    <Head title="Tracks" />
+    <Head title="Songs" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex flex-col gap-4 p-4">
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h1 class="text-2xl font-bold">Tracks</h1>
-                <Input v-if="filter !== 'duplicates'" v-model="search" name="q" class="max-w-xs" placeholder="Search..." aria-label="Search tracks" />
+                <h1 class="text-2xl font-bold">Songs</h1>
+                <Input v-if="filter !== 'duplicates'" v-model="search" name="q" class="w-full sm:max-w-xs" placeholder="Search..." aria-label="Search" />
             </div>
+
+            <p class="max-w-3xl text-sm text-muted-foreground">
+                A <strong class="text-foreground">line</strong> is the text in a set's tracklist. A <strong class="text-foreground">song</strong> is the song itself,
+                and several lines (in different sets, or spelled differently) can point to the same song. New lines are linked automatically:
+                to an existing song with the same name, or to a new song made from the line. Check those guesses here.
+                A fix applies to every set with that exact line.
+            </p>
 
             <div class="flex flex-wrap gap-2">
                 <Button
@@ -107,41 +114,43 @@ const paginated = computed(() => props.aliases ?? props.tracks);
                 <div v-if="!aliases.data.length" class="py-4 text-center text-muted-foreground">Nothing here</div>
             </div>
 
-            <!-- All tracks -->
-            <div v-if="tracks" class="rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                <table class="w-full">
-                    <thead>
-                        <tr class="border-b border-sidebar-border/70 dark:border-sidebar-border">
-                            <th class="p-4 text-left">Track</th>
-                            <th class="p-4 text-left">Lines</th>
-                            <th class="p-4 text-left">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="track in tracks.data" :key="track.id" class="border-b border-sidebar-border/70 last:border-0 dark:border-sidebar-border">
-                            <td class="p-4">{{ track.name }}</td>
-                            <td class="p-4 text-sm text-muted-foreground">{{ track.aliases_count }}</td>
-                            <td class="p-4">
-                                <Button variant="outline" size="sm" @click="startMerge(track)">Merge into...</Button>
-                            </td>
-                        </tr>
-                        <tr v-if="!tracks.data.length">
-                            <td colspan="3" class="p-4 text-center text-muted-foreground">No tracks found</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- All songs, with the lines that point to them -->
+            <div v-if="tracks" class="rounded-xl border border-sidebar-border/70 px-4 divide-y dark:border-sidebar-border">
+                <div v-for="track in tracks.data" :key="track.id" class="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-baseline gap-x-4 text-sm">
+                            <span><span class="text-xs text-muted-foreground">artist </span><span class="font-medium">{{ track.artist }}</span></span>
+                            <span><span class="text-xs text-muted-foreground">title </span><span class="font-medium">{{ track.title }}</span></span>
+                            <span v-if="track.version"><span class="text-xs text-muted-foreground">version </span><span class="font-medium">{{ track.version }}</span></span>
+                        </div>
+                        <ul class="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                            <li v-for="line in track.lines" :key="line.id" class="truncate">
+                                <span class="font-mono">{{ line.text }}</span>
+                                <span v-if="line.livesets.length"> · {{ line.livesets.join(', ') }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <Button variant="outline" size="sm" class="shrink-0" title="Same song as another one: move its lines over" @click="startMerge(track)">
+                        Merge into another song...
+                    </Button>
+                </div>
+                <div v-if="!tracks.data.length" class="py-4 text-center text-muted-foreground">No songs found</div>
             </div>
 
             <!-- Same title, different artist spelling -->
-            <div v-if="duplicates" class="flex flex-col gap-3">
+            <template v-if="duplicates">
+                <p class="text-sm text-muted-foreground">Songs with the same title but a different artist. If they're the same song, keep one: the lines of the others move to it.</p>
                 <div v-for="(group, index) in duplicates" :key="index" class="rounded-xl border border-sidebar-border/70 px-4 divide-y dark:border-sidebar-border">
                     <div v-for="track in group" :key="track.id" class="flex items-center justify-between gap-2 py-2">
-                        <span class="truncate">{{ track.name }}</span>
+                        <span class="truncate text-sm">
+                            {{ track.name }}
+                            <span class="text-xs text-muted-foreground"> · {{ track.lines_count }} line{{ track.lines_count === 1 ? '' : 's' }}</span>
+                        </span>
                         <Button variant="outline" size="sm" class="shrink-0" @click="mergeGroupInto(group, track)">Keep this one</Button>
                     </div>
                 </div>
                 <div v-if="!duplicates.length" class="py-4 text-center text-muted-foreground">No possible duplicates</div>
-            </div>
+            </template>
 
             <div v-if="paginated && paginated.last_page > 1" class="flex items-center justify-between">
                 <Button variant="outline" size="sm" :disabled="!paginated.prev_page_url" :as="paginated.prev_page_url ? Link : 'button'" :href="paginated.prev_page_url ?? undefined" preserve-scroll>
@@ -157,8 +166,8 @@ const paginated = computed(() => props.aliases ?? props.tracks);
         <TrackPickerDialog
             v-model:open="mergeOpen"
             mode="merge"
-            title="Merge track"
-            :description="`Move every line of '${mergeSource?.name}' to another track and remove it.`"
+            title="Merge into another song"
+            :description="`Every line of '${mergeSource?.name}' moves to the song you pick, then '${mergeSource?.name}' is removed.`"
             :exclude-id="mergeSource?.id"
             @submit="({ trackIds }) => mergeSource && trackIds[0] && merge(mergeSource, trackIds[0])"
         />
