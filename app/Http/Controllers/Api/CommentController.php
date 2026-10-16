@@ -6,6 +6,7 @@ use App\Events\CommentDeleted;
 use App\Events\CommentPosted;
 use App\Events\CommentUpdated;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CursorPaginationRequest;
 use App\Http\Requests\StoreCommentRequest;
 use App\Http\Requests\UpdateCommentRequest;
 use App\Models\Comment;
@@ -88,13 +89,15 @@ class CommentController extends Controller
         return response()->json(['message' => 'Comment deleted.']);
     }
 
-    public function recent(Request $request): JsonResponse
+    public function recent(CursorPaginationRequest $request): JsonResponse
     {
-        $comments = Comment::query()
+        $page = Comment::query()
             ->with(['user:id,name', 'liveset:id,title,artist_name'])
             ->orderByDesc('created_at')
-            ->limit(50)
-            ->get()
+            ->orderByDesc('id')
+            ->cursorPaginate($request->perPage());
+
+        $comments = collect($page->items())
             ->map(fn (Comment $comment) => [
                 ...$comment->toBroadcastPayload(),
                 'liveset' => $comment->liveset ? [
@@ -104,7 +107,10 @@ class CommentController extends Controller
                 ] : null,
             ]);
 
-        return response()->json(['comments' => $comments]);
+        return response()->json([
+            'comments' => $comments,
+            'next_cursor' => $page->nextCursor()?->encode(),
+        ]);
     }
 
     /**

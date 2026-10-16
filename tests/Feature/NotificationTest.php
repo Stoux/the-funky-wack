@@ -95,6 +95,39 @@ describe('GET /api/notifications', function () {
         $response = $this->getJson('/api/notifications');
         $response->assertUnauthorized();
     });
+
+    it('pages through notifications newest first with a cursor', function () {
+        foreach ([3, 2, 1] as $minutesAgo) {
+            $this->travelTo(now()->subMinutes($minutesAgo), fn () => $this->user->notify(new NewCommentOnLiveset(
+                Comment::factory()->create(['liveset_id' => $this->liveset->id, 'body' => "{$minutesAgo} minutes ago"]),
+                $this->liveset,
+            )));
+        }
+
+        $first = $this->actingAs($this->user, 'sanctum')
+            ->getJson('/api/notifications?per_page=2');
+
+        $first->assertOk()
+            ->assertJsonCount(2, 'notifications')
+            ->assertJsonPath('unread_count', 3);
+        expect($first->json('notifications.*.data.body_preview'))->toBe(['1 minutes ago', '2 minutes ago'])
+            ->and($first->json('next_cursor'))->toBeString();
+
+        $second = $this->actingAs($this->user, 'sanctum')
+            ->getJson('/api/notifications?per_page=2&cursor='.$first->json('next_cursor'));
+
+        $second->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.data.body_preview', '3 minutes ago')
+            ->assertJsonPath('next_cursor', null);
+    });
+
+    it('rejects a page size above the maximum', function () {
+        $this->actingAs($this->user, 'sanctum')
+            ->getJson('/api/notifications?per_page=101')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
+    });
 });
 
 describe('PUT /api/notifications/{id}/read', function () {

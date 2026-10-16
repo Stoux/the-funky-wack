@@ -333,8 +333,35 @@ describe('GET /api/comments/recent', function () {
                 'title' => $this->liveset->title,
                 'artist_name' => $this->liveset->artist_name,
             ],
-        ])->and($response->json('comments.1.id'))->toBe($older->id);
+        ])->and($response->json('comments.1.id'))->toBe($older->id)
+            ->and($response->json('next_cursor'))->toBeNull();
     });
+
+    it('pages through the latest comments with a cursor', function () {
+        $comments = collect([3, 2, 1])->map(fn (int $minutesAgo) => Comment::factory()->create([
+            'liveset_id' => $this->liveset->id,
+            'created_at' => now()->subMinutes($minutesAgo),
+        ]));
+
+        $first = $this->getJson('/api/comments/recent?per_page=2');
+
+        $first->assertOk()->assertJsonCount(2, 'comments');
+        expect($first->json('comments.*.id'))->toBe([$comments[2]->id, $comments[1]->id])
+            ->and($first->json('next_cursor'))->toBeString();
+
+        $second = $this->getJson('/api/comments/recent?per_page=2&cursor='.$first->json('next_cursor'));
+
+        $second->assertOk()
+            ->assertJsonCount(1, 'comments')
+            ->assertJsonPath('comments.0.id', $comments[0]->id)
+            ->assertJsonPath('next_cursor', null);
+    });
+
+    it('rejects an invalid page size', function (mixed $perPage) {
+        $this->getJson("/api/comments/recent?per_page={$perPage}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
+    })->with([0, 101, 'abc']);
 });
 
 describe('realtime comment events', function () {

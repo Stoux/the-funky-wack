@@ -3,18 +3,22 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CursorPaginationRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(CursorPaginationRequest $request): JsonResponse
     {
-        $notifications = $request->user()
+        $page = $request->user()
             ->notifications()
-            ->latest()
-            ->limit(50)
-            ->get()
+            ->reorder()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->cursorPaginate($request->perPage());
+
+        $notifications = collect($page->items())
             ->map(fn ($notification) => [
                 'id' => $notification->id,
                 'type' => $notification->data['type'] ?? null,
@@ -28,6 +32,7 @@ class NotificationController extends Controller
         return response()->json([
             'notifications' => $notifications,
             'unread_count' => $unreadCount,
+            'next_cursor' => $page->nextCursor()?->encode(),
         ]);
     }
 
