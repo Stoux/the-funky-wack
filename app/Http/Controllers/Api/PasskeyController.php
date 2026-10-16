@@ -24,7 +24,7 @@ class PasskeyController extends Controller
     public function index(Request $request): JsonResponse
     {
         return response()->json([
-            'passkeys' => $request->user()->passkeys()->latest()->get()->map(fn (Passkey $passkey) => $this->format($passkey)),
+            'passkeys' => $request->user()->passkeys()->latest()->get()->map(fn (Passkey $passkey) => self::format($passkey)),
         ]);
     }
 
@@ -60,7 +60,7 @@ class PasskeyController extends Controller
             ], 422);
         }
 
-        return response()->json(['passkey' => $this->format($passkey)], 201);
+        return response()->json(['passkey' => self::format($passkey)], 201);
     }
 
     /**
@@ -71,7 +71,7 @@ class PasskeyController extends Controller
         $passkey = $request->user()->passkeys()->findOrFail($id);
         $passkey->update(['name' => $request->validated('name')]);
 
-        return response()->json(['passkey' => $this->format($passkey)]);
+        return response()->json(['passkey' => self::format($passkey)]);
     }
 
     public function destroy(Request $request, DeletePasskey $delete, int $id): JsonResponse
@@ -84,7 +84,7 @@ class PasskeyController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function format(Passkey $passkey): array
+    public static function format(Passkey $passkey): array
     {
         return [
             'id' => $passkey->id,

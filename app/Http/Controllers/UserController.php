@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Api\PasskeyController;
 use App\Models\Playlist;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,16 +34,11 @@ class UserController extends Controller
                     'used_at' => $invite->used_at?->toIso8601String(),
                     'created_at' => $invite->created_at->toIso8601String(),
                 ]),
+            // Same shape as the app gets from GET /api/passkeys
             'passkeys' => $user->passkeys()
                 ->latest()
                 ->get()
-                ->map(fn (Passkey $passkey) => [
-                    'id' => $passkey->id,
-                    'name' => $passkey->name,
-                    'authenticator' => $passkey->authenticator,
-                    'last_used_at' => $passkey->last_used_at?->toIso8601String(),
-                    'created_at' => $passkey->created_at->toIso8601String(),
-                ]),
+                ->map(fn (Passkey $passkey) => PasskeyController::format($passkey)),
         ]);
     }
 

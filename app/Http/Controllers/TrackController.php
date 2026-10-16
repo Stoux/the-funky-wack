@@ -18,6 +18,8 @@ class TrackController extends Controller
 
         $tracks = Track::query()
             ->addSelect(['sets_count' => $this->setsCountQuery()])
+            // A liked track whose line was removed keeps its page, but isn't in any set to list
+            ->whereHas('aliases', fn (Builder $query) => $query->whereHas('livesetTracks'))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('artist', 'like', "%{$search}%")
                 ->orWhere('title', 'like', "%{$search}%")))

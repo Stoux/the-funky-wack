@@ -42,7 +42,8 @@ return [
     |
     */
 
-    'queue' => env('SCOUT_QUEUE', false),
+    // Queued (Horizon) so a slow or down Meilisearch never breaks saving a liveset or tracklist
+    'queue' => env('SCOUT_QUEUE', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -55,7 +56,7 @@ return [
     |
     */
 
-    'after_commit' => false,
+    'after_commit' => true,
 
     /*
     |--------------------------------------------------------------------------

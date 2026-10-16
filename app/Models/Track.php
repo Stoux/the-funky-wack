@@ -58,11 +58,35 @@ class Track extends Model
      */
     public function appearances(): Collection
     {
-        return LivesetTrack::query()
-            ->whereIn('title', $this->aliases()->select('text'))
+        return self::appearancesFor(collect([$this]))->get($this->id, collect());
+    }
+
+    /**
+     * appearances() for many tracks in a few queries, keyed by track id (search results, liked tracks)
+     *
+     * @param  Collection<int, Track>  $tracks
+     * @return Collection<int, Collection<int, array<string, mixed>>>
+     */
+    public static function appearancesFor(Collection $tracks): Collection
+    {
+        if ($tracks->isEmpty()) {
+            return collect();
+        }
+
+        $tracks = \Illuminate\Database\Eloquent\Collection::make($tracks)->loadMissing('aliases');
+        $texts = $tracks->flatMap->aliases->pluck('text')->unique()->values();
+
+        // Grouped like MySQL matched them in the query, see TrackAlias::forTexts()
+        $lines = $texts->isEmpty() ? collect() : LivesetTrack::query()
+            ->whereIn('title', $texts)
             ->with('liveset.edition')
             ->get()
             ->filter(fn (LivesetTrack $line) => $line->liveset?->edition)
+            ->groupBy(fn (LivesetTrack $line) => TrackAlias::lookupKey($line->title));
+
+        return $tracks->mapWithKeys(fn (Track $track) => [$track->id => $track->aliases
+            ->flatMap(fn (TrackAlias $alias) => $lines->get(TrackAlias::lookupKey($alias->text), collect()))
+            ->unique('id')
             // Sorts are stable, so this keeps the playing order within a set
             ->sortBy('timestamp')
             ->sortByDesc(fn (LivesetTrack $line) => $line->liveset->edition->date?->getTimestamp() ?? 0)
@@ -75,7 +99,8 @@ class Track extends Model
                 'timestamp' => $line->timestamp,
                 'line' => $line->title,
             ])
-            ->values();
+            ->values(),
+        ]);
     }
 
     /**

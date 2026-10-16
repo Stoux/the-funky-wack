@@ -98,6 +98,42 @@ describe('linking lines to tracks', function () {
     });
 });
 
+describe('cleaning up', function () {
+    it('removes lines no tracklist uses anymore, and tracks only they pointed at', function () {
+        $liveset = Liveset::factory()->create();
+        $liveset->tracks()->create(['title' => 'Bicep - Tilte', 'timestamp' => 0, 'order' => 1]);
+        $liveset->tracks()->create(['title' => 'Four Tet - In My Dreams', 'timestamp' => 60, 'order' => 2]);
+
+        // The admin fixes the typo: all rows are recreated
+        $liveset->tracks()->delete();
+        $liveset->tracks()->create(['title' => 'Bicep - Title', 'timestamp' => 0, 'order' => 1]);
+        $liveset->tracks()->create(['title' => 'Four Tet - In My Dreams', 'timestamp' => 60, 'order' => 2]);
+        $this->linker->pruneUnused();
+
+        expect(TrackAlias::pluck('text')->sort()->values()->all())->toBe(['Bicep - Title', 'Four Tet - In My Dreams'])
+            ->and(Track::pluck('title')->sort()->values()->all())->toBe(['In My Dreams', 'Title']);
+    });
+
+    it('keeps a track someone liked, even when its line is gone', function () {
+        $liveset = Liveset::factory()->create();
+        $liveset->tracks()->create(['title' => 'Bicep - Glue', 'timestamp' => 0, 'order' => 1]);
+        App\Models\User::factory()->create()->likedTracks()->attach(Track::firstWhere('title', 'Glue'));
+
+        $liveset->tracks()->delete();
+        $this->linker->pruneUnused();
+
+        expect(TrackAlias::count())->toBe(0)
+            ->and(Track::firstWhere('title', 'Glue'))->not->toBeNull();
+    });
+
+    it('looks lines up the way MySQL matches them, ignoring case and accents', function () {
+        $this->linker->link('Röyksopp - Eple');
+
+        expect(TrackAlias::lookupKey('  ROYKSOPP - eple '))->toBe(TrackAlias::lookupKey('Röyksopp - Eple'))
+            ->and(TrackAlias::forTexts(['Röyksopp - Eple'])->keys()->all())->toBe([TrackAlias::lookupKey('royksopp - eple')]);
+    });
+});
+
 describe('tracklists', function () {
     it('links lines when a tracklist is saved, and keeps the links when it is saved again', function () {
         $liveset = Liveset::factory()->create();

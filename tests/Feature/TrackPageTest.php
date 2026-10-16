@@ -29,6 +29,16 @@ describe('tracks overview', function () {
                 ->where('tracks.data.1.sets_count', 1));
     });
 
+    it('leaves out tracks that are not in any set anymore', function () {
+        $this->older->tracks()->create(['title' => 'Bicep - Glue', 'timestamp' => 0, 'order' => 1]);
+        App\Models\Track::factory()->create(['artist' => 'Liked', 'title' => 'But gone']);
+
+        $this->get(route('tracks.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('tracks.data', 1)
+                ->where('tracks.data.0.title', 'Glue'));
+    });
+
     it('searches and sorts by name', function () {
         $this->older->tracks()->create(['title' => 'Four Tet - In My Dreams', 'timestamp' => 0, 'order' => 1]);
         $this->older->tracks()->create(['title' => 'Bicep - Glue', 'timestamp' => 60, 'order' => 2]);

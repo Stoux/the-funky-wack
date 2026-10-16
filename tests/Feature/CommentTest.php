@@ -84,6 +84,16 @@ describe('GET /api/livesets/{liveset}/comments', function () {
             ->assertJsonCount(0, 'comments');
     });
 
+    it('excludes deleted comments whose replies are all deleted too', function () {
+        $parent = Comment::factory()->create(['liveset_id' => $this->liveset->id]);
+        Comment::factory()->reply($parent)->create()->delete();
+        $parent->delete();
+
+        $this->getJson("/api/livesets/{$this->liveset->id}/comments")
+            ->assertOk()
+            ->assertJsonCount(0, 'comments');
+    });
+
     it('is accessible to guests', function () {
         Comment::factory()->create(['liveset_id' => $this->liveset->id]);
 

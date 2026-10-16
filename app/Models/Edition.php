@@ -45,7 +45,7 @@ class Edition extends Model
         ];
     }
 
-    protected function livesets(): HasMany
+    public function livesets(): HasMany
     {
         return $this->hasMany(Liveset::class);
     }

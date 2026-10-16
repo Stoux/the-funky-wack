@@ -37,12 +37,12 @@ class SearchController extends Controller
             ])
             ->values();
 
-        $tracks = Track::search($query)
-            ->take($limit)
-            ->get()
+        $trackHits = Track::search($query)->take($limit)->get();
+        $appearances = Track::appearancesFor($trackHits);
+        $tracks = $trackHits
             ->map(fn (Track $track) => [
                 ...$track->toSummary(),
-                'appearances' => $track->appearances(),
+                'appearances' => $appearances->get($track->id, collect()),
             ])
             ->values();
 

@@ -26,6 +26,7 @@ class TrackController extends Controller
     {
         $filter = in_array($request->query('filter'), self::FILTERS, true) ? $request->query('filter') : 'review';
         $search = trim((string) $request->query('q', ''));
+        $duplicates = $this->duplicateGroups();
 
         return Inertia::render('Admin/Tracks', [
             'filter' => $filter,
@@ -35,11 +36,11 @@ class TrackController extends Controller
                 'unknown' => TrackAlias::where('status', TrackAliasStatus::Unknown)->count(),
                 'reviewed' => TrackAlias::where('status', TrackAliasStatus::Reviewed)->count(),
                 'tracks' => Track::count(),
-                'duplicates' => $this->duplicateGroups()->count(),
+                'duplicates' => $duplicates->count(),
             ],
             'aliases' => in_array($filter, ['review', 'unknown', 'reviewed'], true) ? $this->aliases($filter, $search) : null,
             'tracks' => $filter === 'tracks' ? $this->trackList($search) : null,
-            'duplicates' => $filter === 'duplicates' ? $this->duplicateGroups()->take(50)->values() : null,
+            'duplicates' => $filter === 'duplicates' ? $duplicates->take(50)->values() : null,
         ]);
     }
 
@@ -125,19 +126,21 @@ class TrackController extends Controller
     /**
      * @return array<string, mixed>
      */
-    public static function formatAlias(TrackAlias $alias): array
+    /**
+     * @param  Collection<int, \App\Models\Liveset>|null  $livesets  the sets the line is used in, from TrackAlias::livesetsFor()
+     * @return array<string, mixed>
+     */
+    public static function formatAlias(TrackAlias $alias, ?Collection $livesets = null): array
     {
         return [
             'id' => $alias->id,
             'text' => $alias->text,
             'status' => $alias->status->value,
             'tracks' => $alias->tracks->map(fn (Track $track) => self::formatTrack($track))->values(),
-            'livesets' => $alias->relationLoaded('livesetTracks')
-                ? $alias->livesetTracks->pluck('liveset')->filter()->unique('id')->map(fn ($liveset) => [
-                    'id' => $liveset->id,
-                    'title' => $liveset->title,
-                ])->values()
-                : [],
+            'livesets' => ($livesets ?? collect())->map(fn ($liveset) => [
+                'id' => $liveset->id,
+                'title' => $liveset->title,
+            ])->values(),
         ];
     }
 
@@ -149,36 +152,40 @@ class TrackController extends Controller
             default => TrackAliasStatus::Auto,
         };
 
-        return TrackAlias::query()
+        $page = TrackAlias::query()
             ->where('status', $status)
             ->when($search !== '', fn ($query) => $query->where('text', 'like', "%{$search}%"))
-            ->with(['tracks' => fn ($query) => $query->withCount('aliases'), 'livesetTracks.liveset:id,title'])
+            ->with(['tracks' => fn ($query) => $query->withCount('aliases')])
             ->orderBy('text')
             ->paginate(50)
-            ->withQueryString()
-            ->through(fn (TrackAlias $alias) => self::formatAlias($alias));
+            ->withQueryString();
+        $livesets = TrackAlias::livesetsFor($page->getCollection());
+
+        return $page->through(fn (TrackAlias $alias) => self::formatAlias($alias, $livesets->get(TrackAlias::lookupKey($alias->text))));
     }
 
     private function trackList(string $search): mixed
     {
-        return Track::query()
+        $page = Track::query()
             ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
                 ->where('artist', 'like', "%{$search}%")
                 ->orWhere('title', 'like', "%{$search}%")))
             ->withCount('aliases')
-            ->with('aliases.livesetTracks.liveset:id,title')
+            ->with('aliases')
             ->orderBy('artist')
             ->orderBy('title')
             ->paginate(50)
-            ->withQueryString()
-            ->through(fn (Track $track) => [
-                ...self::formatTrack($track),
-                'lines' => $track->aliases->map(fn (TrackAlias $alias) => [
-                    'id' => $alias->id,
-                    'text' => $alias->text,
-                    'livesets' => $alias->livesetTracks->pluck('liveset')->filter()->unique('id')->pluck('title')->values(),
-                ])->values(),
-            ]);
+            ->withQueryString();
+        $livesets = TrackAlias::livesetsFor($page->getCollection()->flatMap->aliases);
+
+        return $page->through(fn (Track $track) => [
+            ...self::formatTrack($track),
+            'lines' => $track->aliases->map(fn (TrackAlias $alias) => [
+                'id' => $alias->id,
+                'text' => $alias->text,
+                'livesets' => ($livesets->get(TrackAlias::lookupKey($alias->text)) ?? collect())->pluck('title')->values(),
+            ])->values(),
+        ]);
     }
 
     /**

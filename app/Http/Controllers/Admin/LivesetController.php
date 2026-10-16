@@ -12,6 +12,7 @@ use App\Models\Liveset;
 use App\Models\LivesetTrack;
 use App\Models\TrackAlias;
 use App\Services\TimetablerService;
+use App\Services\TrackLinker;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -113,16 +114,17 @@ class LivesetController extends Controller
         $editions = Edition::orderBy('date', 'desc')->get();
 
         // Load the liveset with its tracks
-        $liveset->load(['tracks.alias.tracks' => fn ($query) => $query->withCount('aliases')]);
+        $liveset->load('tracks');
 
         // The links of each line, for reviewing them right here
+        $aliases = TrackAlias::forTexts($liveset->tracks->pluck('title'));
+        $aliases->each(fn (TrackAlias $alias) => $alias->tracks->loadCount('aliases'));
         $trackAliases = $liveset->tracks
-            ->map(fn (LivesetTrack $track) => $track->alias)
+            ->map(fn (LivesetTrack $track) => $aliases->get(TrackAlias::lookupKey($track->title)))
             ->filter()
             ->unique('id')
             ->map(fn (TrackAlias $alias) => AdminTrackController::formatAlias($alias))
             ->values();
-        $liveset->tracks->each->unsetRelation('alias');
 
         return Inertia::render('Admin/Liveset', [
             'liveset' => $liveset,
@@ -161,6 +163,9 @@ class LivesetController extends Controller
             }
 
             DB::commit();
+
+            // Edited or removed lines leave their alias (and maybe a track) behind
+            app(TrackLinker::class)->pruneUnused();
 
             return redirect()->route('admin.livesets.view', $liveset)
                 ->with('success', 'Liveset updated successfully.');

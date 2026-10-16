@@ -34,7 +34,8 @@ class CommentController extends Controller
             }])
             ->orderBy($sortBy)
             ->get()
-            ->reject(fn (Comment $comment) => $comment->trashed() && $comment->replies->isEmpty())
+            // A deleted comment stays as a placeholder only while it has a reply that isn't deleted
+            ->reject(fn (Comment $comment) => $comment->trashed() && $comment->replies->every(fn (Comment $reply) => $reply->trashed()))
             ->values()
             ->map(fn (Comment $comment) => $this->formatComment($comment, $userId));
 

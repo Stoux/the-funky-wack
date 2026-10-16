@@ -14,15 +14,16 @@ class TrackLikeController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $tracks = $request->user()
+        $liked = $request->user()
             ->likedTracks()
             ->orderByPivot('created_at', 'desc')
-            ->get()
-            ->map(fn (Track $track) => [
-                ...$track->toSummary(),
-                'liked_at' => $track->pivot->created_at->toIso8601String(),
-                'appearances' => $track->appearances(),
-            ]);
+            ->get();
+        $appearances = Track::appearancesFor($liked);
+        $tracks = $liked->map(fn (Track $track) => [
+            ...$track->toSummary(),
+            'liked_at' => $track->pivot->created_at->toIso8601String(),
+            'appearances' => $appearances->get($track->id, collect()),
+        ]);
 
         return response()->json(['tracks' => $tracks]);
     }

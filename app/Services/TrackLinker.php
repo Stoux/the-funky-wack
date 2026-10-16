@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\TrackAliasStatus;
 use App\Models\Track;
 use App\Models\TrackAlias;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -189,17 +190,20 @@ class TrackLinker
      */
     private function moveLikes(int $sourceId, int $targetId): void
     {
-        if ($sourceId === $targetId) {
+        $source = Track::find($sourceId);
+        $target = Track::find($targetId);
+        if (! $source || ! $target || $source->is($target)) {
             return;
         }
 
-        // Read first, MySQL can't update a table while selecting from it in a subquery
-        $alreadyLikedTarget = DB::table('track_likes')->where('track_id', $targetId)->pluck('user_id');
-
-        DB::table('track_likes')
-            ->where('track_id', $sourceId)
-            ->whereNotIn('user_id', $alreadyLikedTarget)
-            ->update(['track_id' => $targetId]);
+        // Keep when each like was made, the liked tracks list is ordered by it.
+        // The source's own likes go with the source when it's deleted.
+        $target->likedBy()->syncWithoutDetaching(
+            $source->likedBy()->get()->mapWithKeys(fn (User $user) => [$user->id => [
+                'created_at' => $user->pivot->created_at,
+                'updated_at' => $user->pivot->updated_at,
+            ]])->all()
+        );
     }
 
     /**
@@ -209,10 +213,34 @@ class TrackLinker
      */
     private function pruneOrphans(array $trackIds): void
     {
+        // One by one, so Scout drops them from the search index and the editions cache is cleared
         Track::query()
             ->whereIn('id', $trackIds)
             ->whereDoesntHave('aliases')
-            ->delete();
+            ->get()
+            ->each->delete();
+    }
+
+    /**
+     * Lines no tracklist uses anymore (an edited or removed line), and the tracks only they pointed at.
+     * Tracks someone liked stay, their page and likes keep working.
+     */
+    public function pruneUnused(): void
+    {
+        $unused = TrackAlias::query()->whereDoesntHave('livesetTracks')->with('tracks')->get();
+        if ($unused->isEmpty()) {
+            return;
+        }
+
+        $trackIds = $unused->flatMap->tracks->pluck('id')->unique()->all();
+        TrackAlias::query()->whereKey($unused->modelKeys())->delete();
+
+        Track::query()
+            ->whereIn('id', $trackIds)
+            ->whereDoesntHave('aliases')
+            ->whereDoesntHave('likedBy')
+            ->get()
+            ->each->delete();
     }
 
     private function isUnknown(string $name): bool
