@@ -263,19 +263,28 @@ export function useQueue() {
                 return;
             }
 
-            if (isQueueActive.value && queueItems.value.length > 0) {
-                console.log('[Queue] Track finished, advancing to next in queue');
-                playNext();
-                return;
-            }
-
-            // Queue empty — fall back to edition autoplay
-            const next = nextAutoplayItem.value;
-            if (next) {
-                console.log('[Queue] Track finished, autoplaying next:', next.liveset.title);
-                playLiveset(next.edition, next.liveset);
-            }
+            console.log('[Queue] Track finished, advancing');
+            advance();
         }));
+    }
+
+    const canAdvance = computed(() => (isQueueActive.value && queueItems.value.length > 0) || !!nextAutoplayItem.value);
+
+    /**
+     * Play whatever comes next: the queue first, else the edition's autoplay order. Returns whether anything plays.
+     */
+    function advance(): boolean {
+        if (isQueueActive.value && queueItems.value.length > 0 && playNext()) {
+            return true;
+        }
+
+        // Queue empty — fall back to edition autoplay
+        const next = nextAutoplayItem.value;
+        if (next) {
+            playLiveset(next.edition, next.liveset);
+            return true;
+        }
+        return false;
     }
 
     // Set up auto-advance when the composable is first used
@@ -291,8 +300,10 @@ export function useQueue() {
         nextInQueue,
         queueWithLivesets,
         nextAutoplayItem,
+        canAdvance,
 
         // Methods
+        advance,
         setQueue,
         clearQueue,
         playNext,

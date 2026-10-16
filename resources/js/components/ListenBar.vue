@@ -80,9 +80,9 @@ const ZOOM_STEP = 1.5;
 let pinch: { distance: number; zoom: number } | null = null;
 let gestureStartZoom = 1;
 // Wheel and pinch fire many events per frame, every zoom re-renders the waveform, so apply only the latest per frame
-let pendingZoom: { level: number; anchorX: number } | null = null;
+let pendingZoom: { level: number; anchorX?: number } | null = null;
 
-function requestZoom(level: number, anchorX: number): void {
+function requestZoom(level: number, anchorX?: number): void {
     const isScheduled = pendingZoom !== null;
     pendingZoom = { level, anchorX };
     if (isScheduled) {
@@ -128,7 +128,8 @@ function handleWaveformWheel(event: WheelEvent): void {
     }
 }
 
-// Safari sends a trackpad pinch as gesture events (with a scale) instead of ctrl + wheel
+// Safari sends a trackpad pinch as gesture events (with a scale) instead of ctrl + wheel.
+// iOS fires them next to the touch events of a pinch, the touch handlers own that one.
 function handleWaveformGestureStart(event: Event): void {
     event.preventDefault();
     gestureStartZoom = zoomLevel.value;
@@ -136,7 +137,11 @@ function handleWaveformGestureStart(event: Event): void {
 
 function handleWaveformGestureChange(event: Event & { scale?: number; clientX?: number }): void {
     event.preventDefault();
-    requestZoom(gestureStartZoom * (event.scale ?? 1), waveformOffsetX(event.clientX ?? 0));
+    if (pinch) {
+        return;
+    }
+    // Without a position zoom like the buttons do, around the playhead or the middle
+    requestZoom(gestureStartZoom * (event.scale ?? 1), event.clientX === undefined ? undefined : waveformOffsetX(event.clientX));
 }
 
 function handleWaveformTouchStart(event: TouchEvent): void {
@@ -275,9 +280,15 @@ function handleResumeDetach(): void {
 // Skipping or seeking from outside the app leaves a synced session, like on Android.
 useMediaSession({
     play: () => {
-        if (!playing.value) {
-            handlePlayPause();
+        if (playing.value) {
+            return;
         }
+        // The resume dialog is useless on a lockscreen or in a background tab, so go straight back to the host
+        if (isListeningAlong.value && syncPaused.value && document.visibilityState === 'hidden') {
+            handleResync();
+            return;
+        }
+        handlePlayPause();
     },
     pause: () => {
         if (playing.value) {

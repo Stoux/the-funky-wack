@@ -309,7 +309,8 @@ export function useAudioPlayer() {
         });
 
         surfer.on('scroll', (start, end) => setVisibleRange(start, end));
-        surfer.on('redraw', () => {
+        // Not on 'redraw': that fires mid-render, and zooming there leaves a stale second waveform behind
+        surfer.on('redrawcomplete', () => {
             // A resize keeps WaveSurfer's absolute px/s, re-apply the zoom level against the new width
             const duration = surfer.getDuration();
             const width = surfer.getWidth();
@@ -363,10 +364,12 @@ export function useAudioPlayer() {
                 autoplayOnReady = true;
             }
 
-            // Same set rebuilt (e.g. quality switch): put its zoom back
+            // Same set rebuilt (e.g. quality switch): put its zoom back around the playhead,
+            // the new instance starts scrolled to 0 so a panned-away view can't be restored
             if (zoomLevel.value > 1) {
                 const level = zoomLevel.value;
                 zoomLevel.value = 1;
+                setFollowPlayhead(true);
                 setZoom(level);
             }
 
@@ -500,9 +503,14 @@ export function useAudioPlayer() {
     }
 
     /**
-     * Seek to a specific time
+     * Seek to a specific time. Starts playback, unless keepPaused is set and it's paused (e.g. lockscreen scrubbing).
      */
-    function seek(time: number) {
+    function seek(time: number, { keepPaused = false }: { keepPaused?: boolean } = {}) {
+        if (keepPaused && waveInstance && !loading.value && !playing.value) {
+            // Moves the paused playhead first, so the currentTime watcher sees no jump and doesn't play
+            setFollowPlayhead(true);
+            waveInstance.setTime(time);
+        }
         currentTime.value = time;
     }
 

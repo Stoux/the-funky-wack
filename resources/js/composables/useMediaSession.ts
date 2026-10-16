@@ -25,35 +25,23 @@ export function useMediaSession(controls: {
         return;
     }
 
-    const { currentLiveset, currentEdition, playing, currentTime, seek, playLiveset } = useAudioPlayer();
-    const { nowPlayingSections, nowPlayingTrackIndices } = useTracklistNowPlaying();
-    const { isQueueActive, queueItems, playNext, nextAutoplayItem } = useQueue();
+    const { currentLiveset, currentEdition, playing, currentTime, seek } = useAudioPlayer();
+    const { nowPlayingSections, nowPlayingTracks, nowPlayingTrackIndices } = useTracklistNowPlaying();
+    const { canAdvance, advance } = useQueue();
 
     const duration = computed(() => currentLiveset.value?.duration_in_seconds ?? 0);
     const hasTracklist = computed(() => nowPlayingSections.value.some(section => section.title));
 
     // During a transition both tracks are shown, like in the playbar: "A → B"
     const title = computed(() => {
-        const titles = nowPlayingTrackIndices.value
-            .map(index => nowPlayingSections.value[index]?.title)
-            .filter(Boolean);
+        const titles = nowPlayingTracks.value.map(track => track.title).filter(Boolean);
         return titles.length ? titles.join(' → ') : currentLiveset.value?.title ?? '';
     });
 
+    // Seeking from the lockscreen or headphones while paused stays paused, like any other player
     function seekTo(seconds: number) {
         controls.beforeSeek();
-        seek(Math.floor(Math.max(0, Math.min(seconds, duration.value || seconds))));
-    }
-
-    function nextLiveset() {
-        if (isQueueActive.value && queueItems.value.length > 0) {
-            playNext();
-            return;
-        }
-        const next = nextAutoplayItem.value;
-        if (next) {
-            playLiveset(next.edition, next.liveset);
-        }
+        seek(Math.floor(Math.max(0, Math.min(seconds, duration.value || seconds))), { keepPaused: true });
     }
 
     function nextTrack() {
@@ -66,8 +54,12 @@ export function useMediaSession(controls: {
             seekTo(sections[target].start_at);
             return;
         }
+        // Nothing to skip to: don't leave a listen-along session for nothing
+        if (!canAdvance.value) {
+            return;
+        }
         controls.beforeSeek();
-        nextLiveset();
+        advance();
     }
 
     function previousTrack() {
@@ -107,35 +99,45 @@ export function useMediaSession(controls: {
             return;
         }
 
-        const posters = currentEdition.value?.poster_srcset_urls ?? [];
+        // Posters keep their aspect ratio and only the width is known, so no `sizes`: largest first wins
+        const posters = [...(currentEdition.value?.poster_srcset_urls ?? [])].sort((a, b) => b.width - a.width);
         navigator.mediaSession.metadata = new MediaMetadata({
             title: title.value,
             artist: liveset.artist_name,
             album: `${liveset.title} · TFW #${currentEdition.value?.number ?? '?'}`,
             artwork: posters.length
-                ? posters.map(poster => ({ src: poster.url, sizes: `${poster.width}x${poster.width}` }))
+                ? posters.map(poster => ({ src: poster.url }))
                 : [{ src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' }],
         });
     }, { immediate: true });
 
-    watch(playing, (isPlaying) => {
-        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    }, { immediate: true });
-
-    watch([currentTime, duration], () => {
-        if (!duration.value || !('setPositionState' in navigator.mediaSession)) {
+    function updatePositionState() {
+        if (!('setPositionState' in navigator.mediaSession)) {
             return;
         }
         try {
-            navigator.mediaSession.setPositionState({
+            navigator.mediaSession.setPositionState(duration.value ? {
                 duration: duration.value,
                 position: Math.min(currentTime.value, duration.value),
                 playbackRate: 1,
-            });
+            } : undefined);
         } catch {
             // Invalid state while switching sets, the next update fixes it
         }
+    }
+
+    watch(playing, (isPlaying) => {
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        updatePositionState();
     }, { immediate: true });
+
+    // The OS extrapolates the position while playing, so only report set changes and seeks, not every tick
+    watch(duration, () => updatePositionState(), { immediate: true });
+    watch(currentTime, (time, previousTime) => {
+        if (Math.abs(time - (previousTime ?? 0)) > 1.5) {
+            updatePositionState();
+        }
+    });
 
     onBeforeUnmount(() => {
         for (const action of ACTIONS) {
