@@ -27,7 +27,7 @@ class TrackController extends Controller
             ->paginate(50)
             ->withQueryString()
             ->through(fn (Track $track) => [
-                ...$this->formatTrack($track),
+                ...$track->toSummary(),
                 'sets_count' => (int) $track->sets_count,
             ]);
 
@@ -40,25 +40,6 @@ class TrackController extends Controller
 
     public function show(Track $track): Response
     {
-        $appearances = LivesetTrack::query()
-            ->whereIn('title', $track->aliases()->select('text'))
-            ->with('liveset.edition')
-            ->get()
-            ->filter(fn (LivesetTrack $line) => $line->liveset?->edition)
-            // Newest edition first, within a set in playing order (sorts are stable)
-            ->sortBy('timestamp')
-            ->sortByDesc(fn (LivesetTrack $line) => $line->liveset->edition->date?->getTimestamp() ?? 0)
-            ->map(fn (LivesetTrack $line) => [
-                'liveset_id' => $line->liveset->id,
-                'liveset_title' => $line->liveset->title,
-                'artist_name' => $line->liveset->artist_name,
-                'edition_number' => $line->liveset->edition->number,
-                'edition_date' => $line->liveset->edition->date?->format('j M Y'),
-                'timestamp' => $line->timestamp,
-                'line' => $line->title,
-            ])
-            ->values();
-
         // Same artists and title, another version (original, remixes, edits)
         [$artists, $title] = explode('|', $track->match_key);
         $otherVersions = Track::query()
@@ -66,26 +47,13 @@ class TrackController extends Controller
             ->whereKeyNot($track->id)
             ->orderBy('version')
             ->get()
-            ->map(fn (Track $version) => $this->formatTrack($version));
+            ->map(fn (Track $version) => $version->toSummary());
 
         return Inertia::render('Tracks/Show', [
-            'track' => $this->formatTrack($track),
-            'appearances' => $appearances,
+            'track' => $track->toSummary(),
+            'appearances' => $track->appearances(),
             'otherVersions' => $otherVersions,
         ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function formatTrack(Track $track): array
-    {
-        return [
-            'slug' => $track->slug,
-            'artist' => $track->artist,
-            'title' => $track->title,
-            'version' => $track->version,
-        ];
     }
 
     /**

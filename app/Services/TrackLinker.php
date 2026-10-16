@@ -119,6 +119,12 @@ class TrackLinker
             ->all());
         $alias->update(['status' => TrackAliasStatus::Reviewed]);
 
+        // A fixed guess (e.g. swapped artist and title) keeps its likes on the right track
+        if ($trackIds !== []) {
+            foreach (Track::whereIn('id', $previousTrackIds)->whereDoesntHave('aliases')->pluck('id') as $orphanId) {
+                $this->moveLikes($orphanId, $trackIds[0]);
+            }
+        }
         $this->pruneOrphans($previousTrackIds);
         // Pivot changes fire no model events, the tracklists in the editions data link to songs
         EditionsDataService::clearCache();
@@ -173,8 +179,27 @@ class TrackLinker
                     ->all());
             }
 
+            $this->moveLikes($source->id, $target->id);
             $source->delete();
         });
+    }
+
+    /**
+     * Likes of one track become likes of another, people who liked both keep one
+     */
+    private function moveLikes(int $sourceId, int $targetId): void
+    {
+        if ($sourceId === $targetId) {
+            return;
+        }
+
+        // Read first, MySQL can't update a table while selecting from it in a subquery
+        $alreadyLikedTarget = DB::table('track_likes')->where('track_id', $targetId)->pluck('user_id');
+
+        DB::table('track_likes')
+            ->where('track_id', $sourceId)
+            ->whereNotIn('user_id', $alreadyLikedTarget)
+            ->update(['track_id' => $targetId]);
     }
 
     /**

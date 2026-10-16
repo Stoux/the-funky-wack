@@ -12,6 +12,7 @@ import {
 import {Button, type ButtonVariants} from "@/components/ui/button";
 import {Disc3, ListMusic} from "lucide-vue-next";
 import {Link} from "@inertiajs/vue3";
+import TrackLikeButton from "@/components/TrackLikeButton.vue";
 import {Liveset} from "@/types";
 import {computed, nextTick, onMounted, ref, useTemplateRef, watch} from "vue";
 import {formatDuration} from "@/lib/utils";
@@ -177,14 +178,16 @@ defineExpose({ open });
                                 {{ track.title }}
                             </div>
                         </div>
-                        <!-- Track page(s), the row itself seeks -->
-                        <Link v-for="song in track.songs ?? []" :key="song.slug"
-                              :href="route('tracks.show', song.slug)"
-                              class="shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                              :title="`${song.artist} - ${song.title}: all sets with this track`"
-                              @click.stop>
-                            <Disc3 class="h-4 w-4" />
-                        </Link>
+                        <!-- Like and track page per track (several for a mashup), the row itself seeks -->
+                        <div v-for="song in track.songs ?? []" :key="song.slug" class="flex shrink-0 items-center">
+                            <TrackLikeButton :track="song" />
+                            <Link :href="route('tracks.show', song.slug)"
+                                  class="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  :title="`${song.artist} - ${song.title}: all sets with this track`"
+                                  @click.stop>
+                                <Disc3 class="h-4 w-4" />
+                            </Link>
+                        </div>
                     </div>
                 </div>
 

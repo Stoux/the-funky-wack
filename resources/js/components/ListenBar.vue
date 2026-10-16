@@ -3,7 +3,7 @@
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 import {ChevronDown, Pause, Play, Loader2, Volume2, VolumeX, Users, Unlink, ZoomIn, ZoomOut, LocateFixed} from "lucide-vue-next";
 import {Button} from "@/components/ui/button";
-import {onBeforeUnmount, onMounted, ref, useTemplateRef, watch} from "vue";
+import {computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch} from "vue";
 import {formatDuration} from "@/lib/utils";
 import LivesetTrackList from "@/components/LivesetTrackList.vue";
 import LivesetDescription from "@/components/LivesetDescription.vue";
@@ -16,6 +16,7 @@ import ListenerSeekDialog from "@/components/ListenerSeekDialog.vue";
 import ListenerResumeDialog from "@/components/ListenerResumeDialog.vue";
 import CommentsSheet from "@/components/CommentsSheet.vue";
 import WaveformCommentMarkers from "@/components/WaveformCommentMarkers.vue";
+import TrackLikeButton from "@/components/TrackLikeButton.vue";
 import {useComments} from "@/composables/useComments";
 import {useMediaSession} from "@/composables/useMediaSession";
 import {useAudioPlayer} from "@/composables/useAudioPlayer";
@@ -52,6 +53,13 @@ const {
 } = useAudioPlayer();
 
 const { findLivesetById } = useEditions();
+
+// The track(s) of the line playing now, for the heart. During a transition the incoming one.
+const nowPlayingSongs = computed(() => {
+    const incoming = nowPlayingTracks.value[nowPlayingTracks.value.length - 1] ?? nowPlayingTrack.value;
+    const index = incoming?.originalTrackIndex;
+    return index === undefined ? [] : currentLiveset.value?.tracks?.[index]?.songs ?? [];
+});
 
 const {
     isListeningAlong,
@@ -460,12 +468,15 @@ function handleWaveformClick(): void {
                 </div>
             </div>
 
-            <div class="text-sm text-right hidden lg:block" v-if="currentLiveset?.tracks?.length">
-                <div class="font-medium">Now playing</div>
-                <div class="text-muted-foreground" v-if="nowPlayingTracks.length >= 2">
-                    {{ nowPlayingTracks[0]?.title || '?' }} → {{ nowPlayingTracks[1]?.title || '?' }}
+            <div class="hidden lg:flex items-center gap-1" v-if="currentLiveset?.tracks?.length">
+                <TrackLikeButton v-for="song in nowPlayingSongs" :key="song.slug" :track="song" />
+                <div class="text-sm text-right">
+                    <div class="font-medium">Now playing</div>
+                    <div class="text-muted-foreground" v-if="nowPlayingTracks.length >= 2">
+                        {{ nowPlayingTracks[0]?.title || '?' }} → {{ nowPlayingTracks[1]?.title || '?' }}
+                    </div>
+                    <div class="text-muted-foreground" v-else>{{ nowPlayingTrack?.title || '?' }}</div>
                 </div>
-                <div class="text-muted-foreground" v-else>{{ nowPlayingTrack?.title || '?' }}</div>
             </div>
 
             <Button variant="destructive" v-if="!loading && hasPeaks === false && !generatePeaksIfMissing" @click="toggleGeneratePeaks"

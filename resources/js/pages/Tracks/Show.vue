@@ -4,6 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Disc3, ExternalLink, Play } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu.vue';
+import TrackLikeButton from '@/components/TrackLikeButton.vue';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 import { useEditions } from '@/composables/useEditions';
 import { formatDuration } from '@/lib/utils';
@@ -70,7 +71,10 @@ function playFrom(appearance: Appearance) {
                         <p class="truncate text-primary">{{ track.artist }}</p>
                     </div>
                 </div>
-                <UserMenu />
+                <div class="flex shrink-0 items-center gap-2">
+                    <TrackLikeButton :track="track" size="md" />
+                    <UserMenu />
+                </div>
             </div>
 
             <!-- Where it was played -->

@@ -10,7 +10,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Link } from '@inertiajs/vue3';
-import { User, Heart, History, ListMusic, Monitor, LogOut, LogIn, UserPlus, Shield, Bell, MessageCircle } from 'lucide-vue-next';
+import { User, Heart, History, ListMusic, Monitor, LogOut, LogIn, UserPlus, Shield, Bell, MessageCircle, Disc3 } from 'lucide-vue-next';
 import { onMounted } from 'vue';
 import { useNotifications } from '@/composables/useNotifications';
 
@@ -75,6 +75,12 @@ onMounted(() => {
                     <Link :href="route('user.favorites')" class="flex items-center cursor-pointer">
                         <Heart class="mr-2 h-4 w-4" />
                         Favorites
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child>
+                    <Link :href="route('user.liked-tracks')" class="flex items-center cursor-pointer">
+                        <Disc3 class="mr-2 h-4 w-4" />
+                        Liked tracks
                     </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem as-child>

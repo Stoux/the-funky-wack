@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\QueueHealthController;
 use App\Http\Controllers\Api\ReverbWebhookController;
+use App\Http\Controllers\Api\TrackLikeController;
 use App\Http\Controllers\Api\UserSettingsController;
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\BroadcastAuthController;
@@ -83,6 +84,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/favorites', [FavoriteController::class, 'index']);
     Route::post('/favorites/{liveset}', [FavoriteController::class, 'store']);
     Route::delete('/favorites/{liveset}', [FavoriteController::class, 'destroy']);
+
+    // Liked tracks
+    Route::get('/track-likes', [TrackLikeController::class, 'index']);
+    Route::put('/tracks/{track:slug}/like', [TrackLikeController::class, 'store']);
+    Route::delete('/tracks/{track:slug}/like', [TrackLikeController::class, 'destroy']);
 
     // Playlists
     Route::post('/playlists', [PlaylistController::class, 'store']);

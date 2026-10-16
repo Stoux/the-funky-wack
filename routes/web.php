@@ -37,6 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [UserController::class, 'profile'])->name('user.profile');
     Route::get('/history', [UserController::class, 'history'])->name('user.history');
     Route::get('/favorites', [UserController::class, 'favorites'])->name('user.favorites');
+    Route::get('/liked-tracks', fn () => Inertia\Inertia::render('User/LikedTracks'))->name('user.liked-tracks');
     Route::get('/devices', [UserController::class, 'devices'])->name('user.devices');
     Route::get('/link', [UserController::class, 'linkDevice'])->name('user.link-device');
     Route::get('/notifications', fn () => Inertia\Inertia::render('User/Notifications'))->name('user.notifications');
