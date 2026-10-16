@@ -18,6 +18,7 @@ import CommentsSheet from "@/components/CommentsSheet.vue";
 import CommentBubble from "@/components/CommentBubble.vue";
 import WaveformCommentMarkers from "@/components/WaveformCommentMarkers.vue";
 import {useComments} from "@/composables/useComments";
+import {useMediaSession} from "@/composables/useMediaSession";
 import {useAudioPlayer} from "@/composables/useAudioPlayer";
 import {useListenAlong} from "@/composables/useListenAlong";
 import {useEditions} from "@/composables/useEditions";
@@ -225,6 +226,26 @@ function handleResumeDetach(): void {
     detach();
     play();
 }
+
+// Media keys, headphones and the lockscreen player follow the same listen-along rules as the button here.
+// Skipping or seeking from outside the app leaves a synced session, like on Android.
+useMediaSession({
+    play: () => {
+        if (!playing.value) {
+            handlePlayPause();
+        }
+    },
+    pause: () => {
+        if (playing.value) {
+            handlePlayPause();
+        }
+    },
+    beforeSeek: () => {
+        if (isListeningAlong.value) {
+            detach();
+        }
+    },
+});
 
 onMounted(() => {
     if (waveformContainer.value && audioElement.value) {
