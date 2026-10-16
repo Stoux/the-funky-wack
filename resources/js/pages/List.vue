@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {Edition, Liveset, LivesetQuality} from '@/types';
-import {watch, onMounted, onBeforeUnmount} from 'vue';
+import {onMounted, onBeforeUnmount} from 'vue';
 import {Link} from '@inertiajs/vue3';
 import LivesetItem from "@/components/LivesetItem.vue";
 import AutoplayButton from "@/components/AutoplayButton.vue";
@@ -9,7 +9,6 @@ import {useEditions} from "@/composables/useEditions";
 import {useAudioPlayer} from "@/composables/useAudioPlayer";
 import {useQueue} from "@/composables/useQueue";
 import TrackSearch from "@/components/TrackSearch.vue";
-import {useTrackSearch} from "@/composables/useTrackSearch";
 import UserMenu from "@/components/UserMenu.vue";
 import {useFavorites} from "@/composables/useFavorites";
 import {useComments} from "@/composables/useComments";
@@ -59,12 +58,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
     leaveLiveChannel();
 });
-
-// Pass the editions to the track search
-const trackSearch = useTrackSearch();
-watch(editions, (newEditions) => {
-    trackSearch.withEditions(newEditions);
-}, { immediate: true });
 
 </script>
 

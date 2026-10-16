@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\PlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\QueueHealthController;
 use App\Http\Controllers\Api\ReverbWebhookController;
+use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\TrackController as ApiTrackController;
 use App\Http\Controllers\Api\TrackLikeController;
 use App\Http\Controllers\Api\UserSettingsController;
 use App\Http\Controllers\ApiController;
@@ -52,6 +54,10 @@ Route::prefix('playback')->middleware('throttle:30,1')->group(function () {
 // Public playlist endpoints (no auth required, authenticated users get extra data)
 Route::get('/playlists', [PlaylistController::class, 'index']);
 Route::get('/playlists/{shareCode}', [PlaylistController::class, 'show']);
+
+// Search and tracks
+Route::middleware('throttle:60,1')->get('/search', SearchController::class);
+Route::get('/tracks/{track:slug}', [ApiTrackController::class, 'show']);
 
 // Public comment endpoints
 Route::get('/livesets/{liveset}/comments', [CommentController::class, 'index']);

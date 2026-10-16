@@ -3,16 +3,18 @@
 namespace App\Models;
 
 use App\Services\EditionsDataService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Scout\Searchable;
 
 class Liveset extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, Searchable, SoftDeletes;
 
     protected static function booted(): void
     {
@@ -39,6 +41,26 @@ class Liveset extends Model
         return [
             'started_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'artist_name' => $this->artist_name,
+            'genre' => $this->genre,
+            // So "tfw 8" or the edition's tag line finds its sets
+            'edition' => $this->edition ? trim("TFW #{$this->edition->number} {$this->edition->tag_line}") : null,
+        ];
+    }
+
+    protected function makeAllSearchableUsing(Builder $query): Builder
+    {
+        return $query->with('edition');
     }
 
     public function edition()

@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
+use Laravel\Scout\Searchable;
 
 class Track extends Model
 {
     /** @use HasFactory<\Database\Factories\TrackFactory> */
-    use HasFactory;
+    use HasFactory, Searchable;
 
     protected static function booted(): void
     {
@@ -26,6 +27,19 @@ class Track extends Model
         'slug',
         'match_key',
     ];
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'artist' => $this->artist,
+            'title' => $this->title,
+            'version' => $this->version,
+        ];
+    }
 
     public function aliases(): BelongsToMany
     {
@@ -62,6 +76,22 @@ class Track extends Model
                 'line' => $line->title,
             ])
             ->values();
+    }
+
+    /**
+     * Same artists and title, another version (original, remixes, edits)
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Track>
+     */
+    public function otherVersions(): \Illuminate\Database\Eloquent\Collection
+    {
+        [$artists, $title] = explode('|', $this->match_key);
+
+        return self::query()
+            ->where('match_key', 'like', addcslashes("{$artists}|{$title}|", '%_\\').'%')
+            ->whereKeyNot($this->id)
+            ->orderBy('version')
+            ->get();
     }
 
     /**

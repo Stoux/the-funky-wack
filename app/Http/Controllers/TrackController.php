@@ -40,19 +40,10 @@ class TrackController extends Controller
 
     public function show(Track $track): Response
     {
-        // Same artists and title, another version (original, remixes, edits)
-        [$artists, $title] = explode('|', $track->match_key);
-        $otherVersions = Track::query()
-            ->where('match_key', 'like', addcslashes("{$artists}|{$title}|", '%_\\').'%')
-            ->whereKeyNot($track->id)
-            ->orderBy('version')
-            ->get()
-            ->map(fn (Track $version) => $version->toSummary());
-
         return Inertia::render('Tracks/Show', [
             'track' => $track->toSummary(),
             'appearances' => $track->appearances(),
-            'otherVersions' => $otherVersions,
+            'otherVersions' => $track->otherVersions()->map(fn (Track $version) => $version->toSummary()),
         ]);
     }
 
