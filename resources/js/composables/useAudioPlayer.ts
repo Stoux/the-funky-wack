@@ -40,6 +40,13 @@ const zoomLevel = ref(1);
 const followPlayhead = ref(true);
 // Visible part of the waveform in seconds, for overlays like the comment markers
 const visibleRange = ref<{ start: number; end: number } | null>(null);
+let zoomLivesetId: number | undefined = undefined;
+
+function resetZoomState() {
+    zoomLevel.value = 1;
+    followPlayhead.value = true;
+    visibleRange.value = null;
+}
 
 // Quality labels
 const qualityLabels: LivesetFilesByQuality = {
@@ -128,6 +135,8 @@ export function useAudioPlayer() {
                     return;
                 }
 
+                // An external seek (tracklist, media keys, listen-along) also brings the zoomed view back to the playhead
+                setFollowPlayhead(true);
                 waveInstance.play(shouldBeAtTime)?.catch((e: Error) => {
                     if (e.name !== 'AbortError') throw e;
                 });
@@ -184,9 +193,11 @@ export function useAudioPlayer() {
         playing.value = false;
         finished.value = false;
         loading.value = true;
-        zoomLevel.value = 1;
-        followPlayhead.value = true;
-        visibleRange.value = null;
+        // Zoom belongs to a set: a rebuild of the same set (quality switch) keeps it, see the ready handler
+        if (zoomLivesetId !== currentLiveset.value?.id) {
+            resetZoomState();
+            zoomLivesetId = currentLiveset.value?.id;
+        }
 
         // Handle remote playback (Chromecast)
         if (castMedia.casting.value && audioElement) {
@@ -230,9 +241,10 @@ export function useAudioPlayer() {
             mediaControls: false,
             hideScrollbar: true,
             // Only matters once zoomed in, see setFollowPlayhead
-            autoScroll: true,
-            autoCenter: true,
-            minPxPerSec: 1,
+            autoScroll: followPlayhead.value,
+            autoCenter: followPlayhead.value,
+            // 0 = fit the whole set in the width, zooming sets an actual px/s
+            minPxPerSec: 0,
             peaks: peaks,
             url: initSource,
             media: audioElement,
@@ -296,10 +308,18 @@ export function useAudioPlayer() {
             setFollowPlayhead(true);
         });
 
-        surfer.on('scroll', (start, end) => {
-            visibleRange.value = { start, end };
+        surfer.on('scroll', (start, end) => setVisibleRange(start, end));
+        surfer.on('redraw', () => {
+            // A resize keeps WaveSurfer's absolute px/s, re-apply the zoom level against the new width
+            const duration = surfer.getDuration();
+            const width = surfer.getWidth();
+            const pxPerSec = zoomLevel.value > 1 && duration ? (width / duration) * zoomLevel.value : 0;
+            if (Math.abs(pxPerSec - surfer.options.minPxPerSec) > 0.01) {
+                surfer.zoom(pxPerSec);
+                return;
+            }
+            updateVisibleRange();
         });
-        surfer.on('redraw', updateVisibleRange);
 
         surfer.on('play', () => {
             playing.value = true;
@@ -341,6 +361,13 @@ export function useAudioPlayer() {
                 // Joined a paused session - position the playhead but stay paused
                 surfer.setTime(currentTime.value);
                 autoplayOnReady = true;
+            }
+
+            // Same set rebuilt (e.g. quality switch): put its zoom back
+            if (zoomLevel.value > 1) {
+                const level = zoomLevel.value;
+                zoomLevel.value = 1;
+                setZoom(level);
             }
 
             castMedia.withAudioElement(audioElement);
@@ -428,6 +455,7 @@ export function useAudioPlayer() {
         // initPlayer replaces it (e.g. restarting a finished set when currentTime resets to 0)
         if (currentLiveset.value?.id !== liveset.id) {
             destroyWaveInstance();
+            resetZoomState();
         }
 
         currentEdition.value = edition;
@@ -501,16 +529,35 @@ export function useAudioPlayer() {
         return Math.min(48, 12 * (1 + Math.max(0, (minutes - 30) / 60)));
     });
 
-    function updateVisibleRange() {
+    /**
+     * Pixels per second as actually rendered (the full waveform's width), not as intended by zoomLevel
+     */
+    function renderedPxPerSec(): number {
         const duration = waveInstance?.getDuration();
+        if (!waveInstance || !duration) {
+            return 0;
+        }
+        return (waveInstance.getWrapper().scrollWidth || waveInstance.getWidth()) / duration;
+    }
+
+    function setVisibleRange(start: number, end: number) {
+        // Skip identical updates, scroll events fire every frame while following
+        const current = visibleRange.value;
+        if (current && Math.abs(current.start - start) < 0.01 && Math.abs(current.end - end) < 0.01) {
+            return;
+        }
+        visibleRange.value = { start, end };
+    }
+
+    function updateVisibleRange() {
+        const pxPerSec = renderedPxPerSec();
         const width = waveInstance?.getWidth();
-        if (!waveInstance || !duration || !width) {
+        if (!waveInstance || !pxPerSec || !width) {
             return;
         }
 
-        const pxPerSec = (width / duration) * zoomLevel.value;
         const start = waveInstance.getScroll() / pxPerSec;
-        visibleRange.value = { start, end: start + width / pxPerSec };
+        setVisibleRange(start, start + width / pxPerSec);
     }
 
     /**
@@ -524,14 +571,26 @@ export function useAudioPlayer() {
             return;
         }
 
-        const fitPxPerSec = width / duration;
+        const newLevel = Math.min(Math.max(level, 1), maxZoom.value);
+        if (newLevel === zoomLevel.value) {
+            return;
+        }
+
         const anchor = anchorX ?? width / 2;
         const anchorTime = anchorX === undefined && followPlayhead.value
             ? waveInstance.getCurrentTime()
-            : (waveInstance.getScroll() + anchor) / (fitPxPerSec * zoomLevel.value);
+            : (waveInstance.getScroll() + anchor) / renderedPxPerSec();
 
-        zoomLevel.value = Math.min(Math.max(level, 1), maxZoom.value);
-        const pxPerSec = fitPxPerSec * zoomLevel.value;
+        zoomLevel.value = newLevel;
+        if (newLevel === 1) {
+            // Back to the whole set: fit it again and follow by default
+            setFollowPlayhead(true);
+            waveInstance.zoom(0);
+            updateVisibleRange();
+            return;
+        }
+
+        const pxPerSec = (width / duration) * newLevel;
         const scroll = anchorTime * pxPerSec - anchor;
 
         // Zooming in on a spot away from the playhead means looking there, following would yank the view back
@@ -555,16 +614,13 @@ export function useAudioPlayer() {
         }
         followPlayhead.value = follow;
 
-        const duration = waveInstance?.getDuration();
-        const width = waveInstance?.getWidth();
-        if (!waveInstance || !duration || !width) {
+        if (!waveInstance) {
             return;
         }
 
         waveInstance.setOptions({ autoScroll: follow, autoCenter: follow });
         if (follow && zoomLevel.value > 1) {
-            const pxPerSec = (width / duration) * zoomLevel.value;
-            waveInstance.setScroll(waveInstance.getCurrentTime() * pxPerSec - width / 2);
+            waveInstance.setScroll(waveInstance.getCurrentTime() * renderedPxPerSec() - waveInstance.getWidth() / 2);
             updateVisibleRange();
         }
     }

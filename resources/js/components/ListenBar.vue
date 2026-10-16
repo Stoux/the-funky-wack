@@ -75,9 +75,26 @@ const waveformContainer = useTemplateRef('waveform');
 const audioElement = useTemplateRef('audio');
 const commentsSheet = useTemplateRef('commentsSheet');
 
-// Waveform zoom: buttons, ctrl/cmd + wheel (a trackpad pinch arrives as ctrl + wheel too) and pinch on touch
+// Waveform zoom: buttons, ctrl/cmd + wheel (Chrome/Firefox trackpad pinch), Safari gesture events and touch pinch
 const ZOOM_STEP = 1.5;
 let pinch: { distance: number; zoom: number } | null = null;
+let gestureStartZoom = 1;
+// Wheel and pinch fire many events per frame, every zoom re-renders the waveform, so apply only the latest per frame
+let pendingZoom: { level: number; anchorX: number } | null = null;
+
+function requestZoom(level: number, anchorX: number): void {
+    const isScheduled = pendingZoom !== null;
+    pendingZoom = { level, anchorX };
+    if (isScheduled) {
+        return;
+    }
+    requestAnimationFrame(() => {
+        if (pendingZoom) {
+            setZoom(pendingZoom.level, pendingZoom.anchorX);
+        }
+        pendingZoom = null;
+    });
+}
 
 function waveformOffsetX(clientX: number): number {
     return clientX - (waveformContainer.value?.getBoundingClientRect().left ?? 0);
@@ -87,33 +104,60 @@ function touchDistance(touches: TouchList): number {
     return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
 }
 
+/**
+ * Panning a zoomed waveform means looking elsewhere, so stop following the playhead.
+ * Not while listening along: the click overlay sits on top there, so the waveform can't pan anyway.
+ */
+function stopFollowingOnPan(): void {
+    if (zoomLevel.value > 1 && !isListeningAlong.value) {
+        setFollowPlayhead(false);
+    }
+}
+
 function handleWaveformWheel(event: WheelEvent): void {
     if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
-        setZoom(zoomLevel.value * Math.exp(-event.deltaY * 0.01), waveformOffsetX(event.clientX));
+        // Firefox mouse wheels report lines or pages instead of pixels
+        const deltaPx = event.deltaY * (event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1);
+        const baseZoom = pendingZoom?.level ?? zoomLevel.value;
+        requestZoom(baseZoom * Math.exp(-deltaPx * 0.01), waveformOffsetX(event.clientX));
         return;
     }
-    // Scrolling sideways pans the zoomed waveform, so stop following the playhead
-    if (zoomLevel.value > 1 && (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY))) {
-        setFollowPlayhead(false);
+    if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        stopFollowingOnPan();
     }
+}
+
+// Safari sends a trackpad pinch as gesture events (with a scale) instead of ctrl + wheel
+function handleWaveformGestureStart(event: Event): void {
+    event.preventDefault();
+    gestureStartZoom = zoomLevel.value;
+}
+
+function handleWaveformGestureChange(event: Event & { scale?: number; clientX?: number }): void {
+    event.preventDefault();
+    requestZoom(gestureStartZoom * (event.scale ?? 1), waveformOffsetX(event.clientX ?? 0));
 }
 
 function handleWaveformTouchStart(event: TouchEvent): void {
     pinch = event.touches.length === 2 ? { distance: touchDistance(event.touches), zoom: zoomLevel.value } : null;
 }
 
+function handleWaveformTouchEnd(event: TouchEvent): void {
+    if (event.touches.length < 2) {
+        pinch = null;
+    }
+}
+
 function handleWaveformTouchMove(event: TouchEvent): void {
     if (pinch && event.touches.length === 2) {
         event.preventDefault();
         const centroidX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
-        setZoom(pinch.zoom * touchDistance(event.touches) / pinch.distance, waveformOffsetX(centroidX));
+        requestZoom(pinch.zoom * touchDistance(event.touches) / pinch.distance, waveformOffsetX(centroidX));
         return;
     }
-    // One finger drags the zoomed waveform (native scroll), so stop following the playhead
-    if (zoomLevel.value > 1) {
-        setFollowPlayhead(false);
-    }
+    // One finger drags the zoomed waveform (native scroll)
+    stopFollowingOnPan();
 }
 
 // Comments for the playing set (waveform markers + bubble), followed live
@@ -332,6 +376,10 @@ function handleWaveformClick(): void {
                 @wheel="handleWaveformWheel"
                 @touchstart="handleWaveformTouchStart"
                 @touchmove="handleWaveformTouchMove"
+                @touchend="handleWaveformTouchEnd"
+                @touchcancel="handleWaveformTouchEnd"
+                @gesturestart="handleWaveformGestureStart"
+                @gesturechange="handleWaveformGestureChange"
             >
                 <!-- Intercept clicks when synced to prevent accidental seeks -->
                 <div
