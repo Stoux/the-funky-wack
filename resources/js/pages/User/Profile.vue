@@ -9,6 +9,7 @@ import { ArrowLeft, Copy, Check, Plus, UserCheck, Eye, X } from 'lucide-vue-next
 import type { ListeningVisibility } from '@/types';
 import UserMenu from '@/components/UserMenu.vue';
 import { useAuth } from '@/composables/useAuth';
+import PasskeysCard, { type PasskeyRow } from '@/components/PasskeysCard.vue';
 
 interface InviteCode {
     id: number;
@@ -20,6 +21,7 @@ interface InviteCode {
 
 const props = defineProps<{
     invites: InviteCode[];
+    passkeys: PasskeyRow[];
 }>();
 
 const { user } = useAuth();
@@ -291,6 +293,8 @@ function getCsrfToken(): string {
                     </form>
                 </CardContent>
             </Card>
+
+            <PasskeysCard :passkeys="passkeys" />
 
             <!-- Listening Visibility -->
             <Card>
