@@ -34,6 +34,13 @@ let lastQuality: string | undefined = undefined;
 // Used to join a session where the host is paused.
 let autoplayOnReady = true;
 
+// Waveform zoom: 1 = the whole set fits the width. Reset per set.
+const zoomLevel = ref(1);
+// While zoomed, keep the playhead in view until the user pans away. A seek turns it back on.
+const followPlayhead = ref(true);
+// Visible part of the waveform in seconds, for overlays like the comment markers
+const visibleRange = ref<{ start: number; end: number } | null>(null);
+
 // Quality labels
 const qualityLabels: LivesetFilesByQuality = {
     lq: 'Low',
@@ -177,6 +184,9 @@ export function useAudioPlayer() {
         playing.value = false;
         finished.value = false;
         loading.value = true;
+        zoomLevel.value = 1;
+        followPlayhead.value = true;
+        visibleRange.value = null;
 
         // Handle remote playback (Chromecast)
         if (castMedia.casting.value && audioElement) {
@@ -219,7 +229,9 @@ export function useAudioPlayer() {
             normalize: true,
             mediaControls: false,
             hideScrollbar: true,
-            autoCenter: false,
+            // Only matters once zoomed in, see setFollowPlayhead
+            autoScroll: true,
+            autoCenter: true,
             minPxPerSec: 1,
             peaks: peaks,
             url: initSource,
@@ -281,7 +293,13 @@ export function useAudioPlayer() {
 
         surfer.on('click', () => {
             surfer.play();
+            setFollowPlayhead(true);
         });
+
+        surfer.on('scroll', (start, end) => {
+            visibleRange.value = { start, end };
+        });
+        surfer.on('redraw', updateVisibleRange);
 
         surfer.on('play', () => {
             playing.value = true;
@@ -477,11 +495,89 @@ export function useAudioPlayer() {
         }
     }
 
+    // Same scale as the Android app: 12x up to 30 minutes, then +12x per extra hour, capped at 48x
+    const maxZoom = computed(() => {
+        const minutes = (currentLiveset.value?.duration_in_seconds ?? 0) / 60;
+        return Math.min(48, 12 * (1 + Math.max(0, (minutes - 30) / 60)));
+    });
+
+    function updateVisibleRange() {
+        const duration = waveInstance?.getDuration();
+        const width = waveInstance?.getWidth();
+        if (!waveInstance || !duration || !width) {
+            return;
+        }
+
+        const pxPerSec = (width / duration) * zoomLevel.value;
+        const start = waveInstance.getScroll() / pxPerSec;
+        visibleRange.value = { start, end: start + width / pxPerSec };
+    }
+
     /**
-     * Horizontal position (0-100%) of a timestamp within the visible waveform, null if unknown.
-     * The waveform always shows the full set for now, this is the place to account for zoom/scroll later.
+     * Zoom the waveform, keeping the time under anchorX (px from the left edge) in place.
+     * Without an anchor (buttons) it zooms around the playhead while following, else around the middle.
+     */
+    function setZoom(level: number, anchorX?: number) {
+        const duration = waveInstance?.getDuration();
+        const width = waveInstance?.getWidth();
+        if (!waveInstance || loading.value || !duration || !width) {
+            return;
+        }
+
+        const fitPxPerSec = width / duration;
+        const anchor = anchorX ?? width / 2;
+        const anchorTime = anchorX === undefined && followPlayhead.value
+            ? waveInstance.getCurrentTime()
+            : (waveInstance.getScroll() + anchor) / (fitPxPerSec * zoomLevel.value);
+
+        zoomLevel.value = Math.min(Math.max(level, 1), maxZoom.value);
+        const pxPerSec = fitPxPerSec * zoomLevel.value;
+        const scroll = anchorTime * pxPerSec - anchor;
+
+        // Zooming in on a spot away from the playhead means looking there, following would yank the view back
+        const playheadX = waveInstance.getCurrentTime() * pxPerSec - scroll;
+        if (anchorX !== undefined && (playheadX < 0 || playheadX > width)) {
+            setFollowPlayhead(false);
+        }
+
+        waveInstance.zoom(pxPerSec);
+        // The browser clamps this to the scrollable range, so the window never leaves the set
+        waveInstance.setScroll(scroll);
+        updateVisibleRange();
+    }
+
+    /**
+     * Keep the playhead in view while zoomed. Turned off by panning, back on by a seek or the follow button.
+     */
+    function setFollowPlayhead(follow: boolean) {
+        if (followPlayhead.value === follow) {
+            return;
+        }
+        followPlayhead.value = follow;
+
+        const duration = waveInstance?.getDuration();
+        const width = waveInstance?.getWidth();
+        if (!waveInstance || !duration || !width) {
+            return;
+        }
+
+        waveInstance.setOptions({ autoScroll: follow, autoCenter: follow });
+        if (follow && zoomLevel.value > 1) {
+            const pxPerSec = (width / duration) * zoomLevel.value;
+            waveInstance.setScroll(waveInstance.getCurrentTime() * pxPerSec - width / 2);
+            updateVisibleRange();
+        }
+    }
+
+    /**
+     * Horizontal position (0-100%) of a timestamp within the visible part of the waveform, null if unknown
      */
     function getVisiblePosition(seconds: number): number | null {
+        const range = visibleRange.value;
+        if (range && range.end > range.start) {
+            return ((seconds - range.start) / (range.end - range.start)) * 100;
+        }
+
         const duration = currentLiveset.value?.duration_in_seconds;
         if (!duration) {
             return null;
@@ -506,6 +602,9 @@ export function useAudioPlayer() {
         qualityLabels,
         nowPlayingTrack,
         nowPlayingTracks,
+        zoomLevel,
+        maxZoom,
+        followPlayhead,
 
         // Methods
         mount,
@@ -518,6 +617,8 @@ export function useAudioPlayer() {
         setQuality,
         toggleGeneratePeaks,
         getVisiblePosition,
+        setZoom,
+        setFollowPlayhead,
         initPlayer,
     };
 }

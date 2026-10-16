@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
-import {ChevronDown, Pause, Play, Loader2, Volume2, VolumeX, Users, Unlink} from "lucide-vue-next";
+import {ChevronDown, Pause, Play, Loader2, Volume2, VolumeX, Users, Unlink, ZoomIn, ZoomOut, LocateFixed} from "lucide-vue-next";
 import {Button} from "@/components/ui/button";
 import {onBeforeUnmount, onMounted, ref, useTemplateRef, watch} from "vue";
 import {formatDuration} from "@/lib/utils";
@@ -44,6 +44,11 @@ const {
     setQuality,
     toggleGeneratePeaks,
     playLiveset,
+    zoomLevel,
+    maxZoom,
+    followPlayhead,
+    setZoom,
+    setFollowPlayhead,
 } = useAudioPlayer();
 
 const { findLivesetById } = useEditions();
@@ -68,6 +73,47 @@ const {
 const waveformContainer = useTemplateRef('waveform');
 const audioElement = useTemplateRef('audio');
 const commentsSheet = useTemplateRef('commentsSheet');
+
+// Waveform zoom: buttons, ctrl/cmd + wheel (a trackpad pinch arrives as ctrl + wheel too) and pinch on touch
+const ZOOM_STEP = 1.5;
+let pinch: { distance: number; zoom: number } | null = null;
+
+function waveformOffsetX(clientX: number): number {
+    return clientX - (waveformContainer.value?.getBoundingClientRect().left ?? 0);
+}
+
+function touchDistance(touches: TouchList): number {
+    return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+}
+
+function handleWaveformWheel(event: WheelEvent): void {
+    if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        setZoom(zoomLevel.value * Math.exp(-event.deltaY * 0.01), waveformOffsetX(event.clientX));
+        return;
+    }
+    // Scrolling sideways pans the zoomed waveform, so stop following the playhead
+    if (zoomLevel.value > 1 && (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY))) {
+        setFollowPlayhead(false);
+    }
+}
+
+function handleWaveformTouchStart(event: TouchEvent): void {
+    pinch = event.touches.length === 2 ? { distance: touchDistance(event.touches), zoom: zoomLevel.value } : null;
+}
+
+function handleWaveformTouchMove(event: TouchEvent): void {
+    if (pinch && event.touches.length === 2) {
+        event.preventDefault();
+        const centroidX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+        setZoom(pinch.zoom * touchDistance(event.touches) / pinch.distance, waveformOffsetX(centroidX));
+        return;
+    }
+    // One finger drags the zoomed waveform (native scroll), so stop following the playhead
+    if (zoomLevel.value > 1) {
+        setFollowPlayhead(false);
+    }
+}
 
 // Comments for the playing set (waveform markers + bubble), followed live
 const { ensureLoaded: ensureCommentsLoaded, subscribeToLiveset, unsubscribeFromLiveset } = useComments();
@@ -259,7 +305,13 @@ function handleWaveformClick(): void {
     <div class="fixed bottom-0 left-0 right-0 bg-background border-t p-4 flex flex-col gap-4 z-50">
 
         <div class="flex-1">
-            <div class="h-32 bg-muted rounded-md relative" ref="waveform">
+            <div
+                class="h-32 bg-muted rounded-md relative touch-pan-x"
+                ref="waveform"
+                @wheel="handleWaveformWheel"
+                @touchstart="handleWaveformTouchStart"
+                @touchmove="handleWaveformTouchMove"
+            >
                 <!-- Intercept clicks when synced to prevent accidental seeks -->
                 <div
                     v-if="isListeningAlong"
@@ -276,8 +328,23 @@ function handleWaveformClick(): void {
                 </template>
             </div>
             <audio ref="audio" />
-            <div class="flex justify-between text-xs text-muted-foreground mt-1">
+            <div class="flex justify-between items-center text-xs text-muted-foreground mt-1">
                 <span>{{ formatDuration(currentTime) }}</span>
+                <div class="flex items-center gap-1">
+                    <button class="p-1 rounded cursor-pointer hover:text-foreground disabled:opacity-40 disabled:cursor-default" title="Zoom out" :disabled="zoomLevel <= 1" @click="setZoom(zoomLevel / ZOOM_STEP)">
+                        <ZoomOut class="h-3.5 w-3.5" />
+                    </button>
+                    <button class="px-1 rounded font-mono tabular-nums cursor-pointer hover:text-foreground disabled:cursor-default" title="Reset zoom" :disabled="zoomLevel <= 1" @click="setZoom(1)">
+                        {{ zoomLevel.toFixed(1) }}×
+                    </button>
+                    <button class="p-1 rounded cursor-pointer hover:text-foreground disabled:opacity-40 disabled:cursor-default" title="Zoom in" :disabled="zoomLevel >= maxZoom" @click="setZoom(zoomLevel * ZOOM_STEP)">
+                        <ZoomIn class="h-3.5 w-3.5" />
+                    </button>
+                    <button v-if="zoomLevel > 1 && !followPlayhead" class="flex items-center gap-1 px-1 rounded cursor-pointer text-primary hover:underline" title="Follow the playhead again" @click="setFollowPlayhead(true)">
+                        <LocateFixed class="h-3.5 w-3.5" />
+                        Follow
+                    </button>
+                </div>
                 <span>{{ formatDuration(currentLiveset?.duration_in_seconds ?? 0) }}</span>
             </div>
         </div>
