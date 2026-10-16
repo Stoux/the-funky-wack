@@ -26,8 +26,14 @@ return [
     |
     */
 
+    // The Android app signs in through Credential Manager with origin "android:apk-key-hash:<base64url sha256 of the signing cert>".
+    // Defaults: the Play app signing key and the debug key of nl.stoux.tfw. A new key only needs the env var, no deploy.
     'allowed_origins' => [
         config('app.url'),
+        ...array_filter(explode(',', (string) env(
+            'PASSKEYS_ANDROID_ORIGINS',
+            'android:apk-key-hash:0ovX4oPPkbYD4ESvbA_GtBV37KuM19l4A-qDJjBrvxk,android:apk-key-hash:Nap0uuVcQbZSmNIDnazEqvJGqxukQi7BHijHa2ldHBU',
+        ))),
     ],
 
     /*

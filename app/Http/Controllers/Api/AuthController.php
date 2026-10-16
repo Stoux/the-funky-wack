@@ -3,13 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PasskeyLoginRequest;
 use App\Models\InviteCode;
 use App\Models\User;
+use App\Services\PasskeyChallenges;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Passkeys\Actions\GenerateVerificationOptions;
+use Laravel\Passkeys\Actions\VerifyPasskey;
+use Laravel\Passkeys\Support\WebAuthn;
+use Throwable;
+use Webauthn\PublicKeyCredentialRequestOptions;
 
 class AuthController extends Controller
 {
@@ -91,9 +98,51 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = $webGuard->user();
-        $deviceName = $validated['device_name'] ?? 'web';
-        $token = $user->createToken($deviceName)->plainTextToken;
+        return $this->issueToken($request, $webGuard->user(), $validated['device_name'] ?? null, $validated['device_type'] ?? null);
+    }
+
+    /**
+     * Start a passkey sign in. Any passkey of any user works (discoverable credentials), so no email is needed.
+     */
+    public function passkeyOptions(GenerateVerificationOptions $generate, PasskeyChallenges $challenges): JsonResponse
+    {
+        $options = $generate();
+
+        return response()->json([
+            'challenge_id' => $challenges->put($options, 'login'),
+            'options' => WebAuthn::toBrowserArray($options),
+        ]);
+    }
+
+    /**
+     * Finish a passkey sign in: same answer and side effects as a password login
+     */
+    public function passkeyLogin(PasskeyLoginRequest $request, VerifyPasskey $verify, PasskeyChallenges $challenges): JsonResponse
+    {
+        $options = $challenges->pull($request->validated('challenge_id'), 'login', PublicKeyCredentialRequestOptions::class);
+        if ($options === null) {
+            return response()->json([
+                'message' => 'The passkey challenge expired, try again.',
+                'errors' => ['challenge_id' => ['The passkey challenge expired, try again.']],
+            ], 422);
+        }
+
+        try {
+            $passkey = $verify($request->credential(), $options);
+        } catch (Throwable) {
+            // Unknown, removed, or a signature that doesn't check out
+            return response()->json(['message' => 'Passkey not recognized.'], 401);
+        }
+
+        return $this->issueToken($request, $passkey->user, $request->validated('device_name'), $request->validated('device_type'));
+    }
+
+    /**
+     * A Sanctum token for the app, and the device row for it
+     */
+    private function issueToken(Request $request, User $user, ?string $deviceName, ?string $deviceType): JsonResponse
+    {
+        $token = $user->createToken($deviceName ?? 'web')->plainTextToken;
 
         // Capture the client-supplied device fingerprint so the device row gets
         // a real name ("Google Pixel 8") + type instead of the UA-parsed fallback
@@ -103,8 +152,8 @@ class AuthController extends Controller
             $user->getOrCreateDevice(
                 clientId: $clientId,
                 userAgent: $request->userAgent(),
-                deviceName: $validated['device_name'] ?? null,
-                deviceType: $validated['device_type'] ?? null,
+                deviceName: $deviceName,
+                deviceType: $deviceType,
             );
         }
 
@@ -134,6 +183,8 @@ class AuthController extends Controller
     {
         return response()->json([
             'user' => $request->user(),
+            // So the app knows whether to suggest making a passkey
+            'has_passkeys' => $request->user()->passkeys()->exists(),
         ]);
     }
 }

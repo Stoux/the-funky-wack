@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\InviteController;
 use App\Http\Controllers\Api\ListenAlongController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PasskeyController;
 use App\Http\Controllers\Api\PlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\QueueHealthController;
@@ -38,6 +39,10 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', [AuthController::class, 'user']);
     });
+
+    // Passkey sign in for the app (challenge in the cache, answers with a token like /login)
+    Route::middleware('throttle:passkeys')->get('/passkey/options', [AuthController::class, 'passkeyOptions']);
+    Route::middleware('throttle:5,1')->post('/passkey', [AuthController::class, 'passkeyLogin']);
 
     // Device code authentication
     Route::middleware('throttle:5,1')->post('/device-code', [DeviceCodeController::class, 'store']);
@@ -90,6 +95,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/favorites', [FavoriteController::class, 'index']);
     Route::post('/favorites/{liveset}', [FavoriteController::class, 'store']);
     Route::delete('/favorites/{liveset}', [FavoriteController::class, 'destroy']);
+
+    // Passkeys (the web uses the package's session routes)
+    Route::get('/passkeys', [PasskeyController::class, 'index']);
+    Route::middleware('throttle:passkeys')->get('/passkeys/options', [PasskeyController::class, 'options']);
+    Route::middleware('throttle:passkeys')->post('/passkeys', [PasskeyController::class, 'store']);
+    // {id}, not {passkey}: the package binds that one globally, we look it up within the user's own passkeys
+    Route::delete('/passkeys/{id}', [PasskeyController::class, 'destroy'])->whereNumber('id');
 
     // Liked tracks
     Route::get('/track-likes', [TrackLikeController::class, 'index']);
