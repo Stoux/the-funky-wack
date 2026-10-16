@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\TrackAliasStatus;
 use App\Models\Track;
 use App\Models\TrackAlias;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -101,6 +102,89 @@ class TrackLinker
             'slug' => $this->uniqueSlug($artist, $title, $version),
             'match_key' => $matchKey,
         ]);
+    }
+
+    /**
+     * Point a line at other track(s), in order. Several tracks make a mashup.
+     *
+     * @param  array<int, int>  $trackIds
+     */
+    public function relink(TrackAlias $alias, array $trackIds): void
+    {
+        $previousTrackIds = $alias->tracks()->pluck('tracks.id')->all();
+
+        $alias->tracks()->sync(collect(array_values(array_unique($trackIds)))
+            ->mapWithKeys(fn (int $trackId, int $position) => [$trackId => ['position' => $position]])
+            ->all());
+        $alias->update(['status' => TrackAliasStatus::Reviewed]);
+
+        $this->pruneOrphans($previousTrackIds);
+    }
+
+    /**
+     * For lines written as "Title - Artist"
+     */
+    public function swap(TrackAlias $alias): void
+    {
+        $parts = preg_split('/\s+[-–—]\s+/u', trim($alias->text), 2);
+        if (count($parts) !== 2) {
+            return;
+        }
+
+        $parsed = $this->parse("{$parts[1]} - {$parts[0]}");
+        if ($parsed === null) {
+            $this->markUnknown($alias);
+
+            return;
+        }
+
+        $this->relink($alias, [$this->findOrCreateTrack(...$parsed)->id]);
+    }
+
+    public function markUnknown(TrackAlias $alias): void
+    {
+        $this->relink($alias, []);
+    }
+
+    public function review(TrackAlias $alias): void
+    {
+        $alias->update(['status' => TrackAliasStatus::Reviewed]);
+    }
+
+    /**
+     * Move every line of $source over to $target and drop $source
+     */
+    public function merge(Track $source, Track $target): void
+    {
+        if ($source->is($target)) {
+            return;
+        }
+
+        DB::transaction(function () use ($source, $target) {
+            foreach ($source->aliases as $alias) {
+                $trackIds = $alias->tracks->pluck('id')
+                    ->map(fn (int $trackId) => $trackId === $source->id ? $target->id : $trackId)
+                    ->all();
+                $alias->tracks()->sync(collect(array_values(array_unique($trackIds)))
+                    ->mapWithKeys(fn (int $trackId, int $position) => [$trackId => ['position' => $position]])
+                    ->all());
+            }
+
+            $source->delete();
+        });
+    }
+
+    /**
+     * Tracks that no line points at anymore
+     *
+     * @param  array<int, int>  $trackIds
+     */
+    private function pruneOrphans(array $trackIds): void
+    {
+        Track::query()
+            ->whereIn('id', $trackIds)
+            ->whereDoesntHave('aliases')
+            ->delete();
     }
 
     private function isUnknown(string $name): bool

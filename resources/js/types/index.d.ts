@@ -216,6 +216,24 @@ export interface Comment {
     replies?: Comment[];
 }
 
+export interface AdminTrack {
+    id: number;
+    artist: string;
+    title: string;
+    version: string | null;
+    slug: string;
+    name: string;
+    aliases_count?: number;
+}
+
+export interface AdminTrackAlias {
+    id: number;
+    text: string;
+    status: 'auto' | 'unknown' | 'reviewed';
+    tracks: AdminTrack[];
+    livesets: { id: number; title: string }[];
+}
+
 export interface AppNotification {
     id: string;
     type: 'comment_reply' | 'new_comment' | null;

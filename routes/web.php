@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\CommentController as AdminCommentController;
 use App\Http\Controllers\Admin\EditionController;
 use App\Http\Controllers\Admin\LivesetController;
 use App\Http\Controllers\Admin\LivesetFilesController;
+use App\Http\Controllers\Admin\TrackController as AdminTrackController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\UtilController;
 use App\Http\Controllers\Auth\LoginController;
@@ -87,6 +88,14 @@ Route::middleware('admin')->prefix('/admin')->group(function () {
     Route::get('/comments', [AdminCommentController::class, 'comments'])->name('admin.comments');
     Route::delete('/comments/{comment}', [AdminCommentController::class, 'deleteComment'])->name('admin.comments.delete');
     Route::post('/comments/{id}/restore', [AdminCommentController::class, 'restoreComment'])->name('admin.comments.restore');
+
+    Route::get('/tracks', [AdminTrackController::class, 'tracks'])->name('admin.tracks');
+    Route::get('/tracks/search', [AdminTrackController::class, 'search'])->name('admin.tracks.search');
+    Route::post('/tracks/{track}/merge', [AdminTrackController::class, 'merge'])->name('admin.tracks.merge');
+    Route::post('/track-aliases/{alias}/review', [AdminTrackController::class, 'review'])->name('admin.track-aliases.review');
+    Route::post('/track-aliases/{alias}/swap', [AdminTrackController::class, 'swap'])->name('admin.track-aliases.swap');
+    Route::post('/track-aliases/{alias}/unknown', [AdminTrackController::class, 'unknown'])->name('admin.track-aliases.unknown');
+    Route::put('/track-aliases/{alias}/tracks', [AdminTrackController::class, 'link'])->name('admin.track-aliases.link');
 
     Route::post('/util/cue', [UtilController::class, 'parseCue'])->name('util.cue');
 

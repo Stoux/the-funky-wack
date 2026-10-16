@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import {type BreadcrumbItem, type Liveset, type Edition, type LivesetTrack} from '@/types';
+import {type BreadcrumbItem, type Liveset, type Edition, type LivesetTrack, type AdminTrackAlias} from '@/types';
+import TrackAliasRow from '@/components/admin/TrackAliasRow.vue';
 import {Head, Link, useForm} from '@inertiajs/vue3';
 import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';
@@ -25,6 +26,7 @@ const props = defineProps<{
     liveset: Liveset | null;
     editions: Edition[];
     fileCount: number,
+    trackAliases?: AdminTrackAlias[];
 }>();
 const isNewLiveset = computed(() => !props.liveset);
 
@@ -356,6 +358,16 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => [
                     </Button>
                 </div>
             </form>
+
+            <div v-if="trackAliases?.length" class="rounded-xl border border-sidebar-border/70 p-4 dark:border-sidebar-border">
+                <h2 class="text-lg font-semibold">Track links</h2>
+                <p class="text-sm text-muted-foreground">
+                    Which track each line stands for. A fix applies to every set with the exact same line.
+                </p>
+                <div class="divide-y">
+                    <TrackAliasRow v-for="alias in trackAliases" :key="alias.id" :alias="alias" />
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>

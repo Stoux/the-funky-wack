@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Exceptions\InvalidTimetableException;
+use App\Http\Controllers\Admin\TrackController as AdminTrackController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLivesetRequest;
 use App\Http\Requests\UpdateLivesetRequest;
 use App\Models\Edition;
 use App\Models\Liveset;
+use App\Models\LivesetTrack;
+use App\Models\TrackAlias;
 use App\Services\TimetablerService;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -110,12 +113,22 @@ class LivesetController extends Controller
         $editions = Edition::orderBy('date', 'desc')->get();
 
         // Load the liveset with its tracks
-        $liveset->load('tracks');
+        $liveset->load('tracks.alias.tracks');
+
+        // The links of each line, for reviewing them right here
+        $trackAliases = $liveset->tracks
+            ->map(fn (LivesetTrack $track) => $track->alias)
+            ->filter()
+            ->unique('id')
+            ->map(fn (TrackAlias $alias) => AdminTrackController::formatAlias($alias))
+            ->values();
+        $liveset->tracks->each->unsetRelation('alias');
 
         return Inertia::render('Admin/Liveset', [
             'liveset' => $liveset,
             'editions' => $editions,
             'fileCount' => $liveset->files->count(),
+            'trackAliases' => $trackAliases,
         ]);
     }
 
