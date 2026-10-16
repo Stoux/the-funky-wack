@@ -71,6 +71,18 @@ describe('signing in with a passkey', function () {
         expect(session(AdminLoggedIn::SESSION_KEY))->not->toBeNull();
     });
 
+    it('suggests making a passkey after a password login, only without one', function () {
+        $user = User::factory()->create(['password' => 'secret-password']);
+
+        $this->post(route('auth.login.post'), ['email' => $user->email, 'password' => 'secret-password'])
+            ->assertSessionHas('suggest_passkey', true);
+        $this->post(route('auth.logout'));
+
+        makePasskey($user);
+        $this->post(route('auth.login.post'), ['email' => $user->email, 'password' => 'secret-password'])
+            ->assertSessionMissing('suggest_passkey');
+    });
+
     it('rejects a made up credential', function () {
         $this->getJson('/passkeys/login/options')->assertOk();
 

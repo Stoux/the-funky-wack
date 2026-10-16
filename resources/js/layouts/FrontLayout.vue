@@ -3,6 +3,7 @@ import ListenBar from '@/components/ListenBar.vue';
 import ContinuePlayingBar from '@/components/ContinuePlayingBar.vue';
 import RemoteContinueBar from '@/components/RemoteContinueBar.vue';
 import PlayLinkedLivesetDialog from '@/components/PlayLinkedLivesetDialog.vue';
+import PasskeySuggestion from '@/components/PasskeySuggestion.vue';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 import { useDeviceRegistration } from '@/composables/useDeviceRegistration';
 
@@ -39,5 +40,8 @@ useDeviceRegistration();
 
         <!-- Dialog for playing linked livesets from URL parameters -->
         <PlayLinkedLivesetDialog />
+
+        <!-- After a password login: offer to make a passkey -->
+        <PasskeySuggestion />
     </div>
 </template>

@@ -38,6 +38,10 @@ class LoginController extends Controller
                 $request->session()->put(AdminLoggedIn::SESSION_KEY, now());
             }
 
+            if (! Auth::user()->passkeys()->exists()) {
+                $request->session()->flash('suggest_passkey', true);
+            }
+
             return redirect()->intended(route('home'));
         }
 

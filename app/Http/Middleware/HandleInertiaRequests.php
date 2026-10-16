@@ -58,6 +58,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'sessionId' => $request->session()->getId(),
+            // Flashed after a password login without a passkey, the frontend offers to make one if the device can
+            'suggestPasskey' => (bool) $request->session()->get('suggest_passkey'),
             // Shared editions data for playback on all front pages (only on initial page load, not Inertia navigations)
             'editions' => $isAdminRoute || $request->header('X-Inertia') ? null : fn () => app(EditionsDataService::class)->buildEditionsData(app(TimetablerService::class)),
             'qualities' => $isAdminRoute || $request->header('X-Inertia') ? null : fn () => LivesetQuality::options(),
