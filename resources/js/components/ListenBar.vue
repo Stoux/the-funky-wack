@@ -15,7 +15,6 @@ import HostStoppedDialog from "@/components/HostStoppedDialog.vue";
 import ListenerSeekDialog from "@/components/ListenerSeekDialog.vue";
 import ListenerResumeDialog from "@/components/ListenerResumeDialog.vue";
 import CommentsSheet from "@/components/CommentsSheet.vue";
-import CommentBubble from "@/components/CommentBubble.vue";
 import WaveformCommentMarkers from "@/components/WaveformCommentMarkers.vue";
 import {useComments} from "@/composables/useComments";
 import {useMediaSession} from "@/composables/useMediaSession";
@@ -404,7 +403,6 @@ function handleWaveformClick(): void {
                         :duration-seconds="currentLiveset.duration_in_seconds ?? 0"
                         @open-comments="commentsSheet?.open()"
                     />
-                    <CommentBubble :liveset-id="currentLiveset.id" :current-time="currentTime" />
                 </template>
             </div>
             <audio ref="audio" />

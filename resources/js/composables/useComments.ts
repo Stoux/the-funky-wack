@@ -8,7 +8,7 @@ const commentsByLiveset = ref<Record<number, Comment[]>>({});
 // comments_count from the editions data, used until a liveset's comments are loaded
 const commentCounts = ref<Record<number, number>>({});
 
-// Latest comment someone else posted while we were subscribed (drives the live bubble)
+// Latest comment someone else posted while we were subscribed (pops its waveform marker)
 const lastIncomingComment = ref<{ livesetId: number; comment: Comment } | null>(null);
 
 // Subscriber count per liveset channel
