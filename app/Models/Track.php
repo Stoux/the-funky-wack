@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\EditionsDataService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,6 +11,12 @@ class Track extends Model
 {
     /** @use HasFactory<\Database\Factories\TrackFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => EditionsDataService::clearCache());
+        static::deleted(fn () => EditionsDataService::clearCache());
+    }
 
     protected $fillable = [
         'artist',

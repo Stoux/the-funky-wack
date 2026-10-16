@@ -14,7 +14,7 @@ import UserMenu from "@/components/UserMenu.vue";
 import {useFavorites} from "@/composables/useFavorites";
 import {useComments} from "@/composables/useComments";
 import {Button} from "@/components/ui/button";
-import {ListMusic, Radio} from "lucide-vue-next";
+import {Disc3, ListMusic, Radio} from "lucide-vue-next";
 import {useListenAlong} from "@/composables/useListenAlong";
 
 // Get editions from shared Inertia props
@@ -96,6 +96,12 @@ watch(editions, (newEditions) => {
                     <Button variant="outline" size="sm">
                         <ListMusic class="h-4 w-4 mr-2" />
                         Playlists
+                    </Button>
+                </Link>
+                <Link :href="route('tracks.index')">
+                    <Button variant="outline" size="sm">
+                        <Disc3 class="h-4 w-4 mr-2" />
+                        Tracks
                     </Button>
                 </Link>
                 <UserMenu />

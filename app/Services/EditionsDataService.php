@@ -7,6 +7,8 @@ use App\Models\Edition;
 use App\Models\Liveset;
 use App\Models\LivesetFile;
 use App\Models\LivesetTrack;
+use App\Models\Track;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
@@ -61,8 +63,15 @@ class EditionsDataService
                     return [
                         ...$liveset->toArray(),
                         'started_at' => $liveset->started_at?->format('j M Y H:i'),
-                        'tracks' => $liveset->tracks->sortBy('order')->map(fn (LivesetTrack $track) => [
-                            ...$track->toArray(),
+                        'tracks' => $liveset->loadMissing('tracks.alias.tracks')->tracks->sortBy('order')->map(fn (LivesetTrack $track) => [
+                            ...Arr::except($track->toArray(), ['alias']),
+                            // The song(s) this line stands for, several for a mashup
+                            'songs' => $track->alias?->tracks->map(fn (Track $song) => [
+                                'slug' => $song->slug,
+                                'artist' => $song->artist,
+                                'title' => $song->title,
+                                'version' => $song->version,
+                            ])->values()->toArray() ?? [],
                         ])->values()->toArray(),
                         'audio_waveform_url' => $liveset->audioWaveformUrl(),
                         'files' => $liveset->files->filter(fn (LivesetFile $file) => $file->existsOnDisk())->mapWithKeys(fn (LivesetFile $file) => [

@@ -10,7 +10,8 @@ import {
     SheetTrigger
 } from "@/components/ui/sheet";
 import {Button, type ButtonVariants} from "@/components/ui/button";
-import {ListMusic} from "lucide-vue-next";
+import {Disc3, ListMusic} from "lucide-vue-next";
+import {Link} from "@inertiajs/vue3";
 import {Liveset} from "@/types";
 import {computed, nextTick, onMounted, ref, useTemplateRef, watch} from "vue";
 import {formatDuration} from "@/lib/utils";
@@ -157,23 +158,33 @@ defineExpose({ open });
             <ScrollArea class="flex-1 min-h-0" ref="scrollContainer">
                 <div class="flex flex-col px-2" v-if="liveset.tracks?.length" ref="listDiv">
                     <div v-for="(track, index) of liveset.tracks" :key="track.id" ref="trackElements"
-                         class="px-2 py-2 rounded-md"
+                         class="flex items-center gap-2 px-2 py-2 rounded-md"
                          :class="{ 'cursor-pointer hover:bg-muted/50 transition-colors': track.timestamp !== null }"
                          @click="track.timestamp !== null && goToTime(track.timestamp)">
-                        <div :class="{
-                                 'text-green-600 js-now-playing': index === primaryNowPlayingIndex,
-                                 'text-green-600/60': nowPlayingIndices.has(index) && index !== primaryNowPlayingIndex,
-                                 'text-muted-foreground': !nowPlayingIndices.has(index),
-                             }"
-                             v-if="track.timestamp !== null">
-                            #{{ track.order }} &bull; {{ formatDuration(track.timestamp)}}
+                        <div class="min-w-0 flex-1">
+                            <div :class="{
+                                     'text-green-600 js-now-playing': index === primaryNowPlayingIndex,
+                                     'text-green-600/60': nowPlayingIndices.has(index) && index !== primaryNowPlayingIndex,
+                                     'text-muted-foreground': !nowPlayingIndices.has(index),
+                                 }"
+                                 v-if="track.timestamp !== null">
+                                #{{ track.order }} &bull; {{ formatDuration(track.timestamp)}}
+                            </div>
+                            <div v-else class="text-muted-foreground">
+                                #{{ track.order }}
+                            </div>
+                            <div class="font-medium">
+                                {{ track.title }}
+                            </div>
                         </div>
-                        <div v-else class="text-muted-foreground">
-                            #{{ track.order }}
-                        </div>
-                        <div class="font-medium">
-                            {{ track.title }}
-                        </div>
+                        <!-- Track page(s), the row itself seeks -->
+                        <Link v-for="song in track.songs ?? []" :key="song.slug"
+                              :href="route('tracks.show', song.slug)"
+                              class="shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              :title="`${song.artist} - ${song.title}: all sets with this track`"
+                              @click.stop>
+                            <Disc3 class="h-4 w-4" />
+                        </Link>
                     </div>
                 </div>
 

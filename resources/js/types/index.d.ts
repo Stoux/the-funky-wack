@@ -102,6 +102,15 @@ export type LivesetTrack = {
     // Seconds from liveset start where this track begins blending in (transition overlap)
     transition_start: number|null,
     order: number,
+    // The song(s) this line stands for, several for a mashup, none when unknown
+    songs?: TrackSummary[],
+}
+
+export type TrackSummary = {
+    slug: string,
+    artist: string,
+    title: string,
+    version: string|null,
 }
 
 export type LivesetFile = {

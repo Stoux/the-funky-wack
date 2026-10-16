@@ -41,6 +41,7 @@ class TrackLinker
         }
 
         $alias->tracks()->attach($this->findOrCreateTrack(...$parsed)->id, ['position' => 0]);
+        EditionsDataService::clearCache();
 
         return $alias;
     }
@@ -119,6 +120,8 @@ class TrackLinker
         $alias->update(['status' => TrackAliasStatus::Reviewed]);
 
         $this->pruneOrphans($previousTrackIds);
+        // Pivot changes fire no model events, the tracklists in the editions data link to songs
+        EditionsDataService::clearCache();
     }
 
     /**

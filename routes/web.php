@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ListController;
 use App\Http\Controllers\PosterController;
+use App\Http\Controllers\TrackController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,10 @@ Route::middleware('auth')->group(function () {
 // Playlists - public overview + individual playlist view
 Route::get('/playlists', [UserController::class, 'playlists'])->name('user.playlists');
 Route::get('/playlists/{shareCode}/{slug?}', [UserController::class, 'playlist'])->name('playlist.show');
+
+// Tracks played in the sets
+Route::get('/tracks', [TrackController::class, 'index'])->name('tracks.index');
+Route::get('/tracks/{track:slug}', [TrackController::class, 'show'])->name('tracks.show');
 
 // Legacy shared playlist URL redirect
 Route::get('/p/{code}', fn (string $code) => redirect()->route('playlist.show', ['shareCode' => $code]));
