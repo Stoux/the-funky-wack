@@ -12,7 +12,15 @@ class PlaybackPosition extends Model
         'liveset_id',
         'client_id',
         'position',
+        'dismissed_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'dismissed_at' => 'datetime',
+        ];
+    }
 
     public function user(): BelongsTo
     {

@@ -13,7 +13,7 @@ import type { PlaybackPosition, DeviceType, LivesetQuality } from '@/types';
 const { isAuthenticated } = useAuth();
 const { findLivesetById } = useEditions();
 const { currentLiveset, playLiveset } = useAudioPlayer();
-const { loadPositions } = usePlaybackSync();
+const { loadPositions, dismissPosition } = usePlaybackSync();
 const { restoredState } = useNowPlayingState();
 
 // Check if local ContinuePlayingBar would be visible
@@ -82,8 +82,10 @@ function playPosition(position: PlaybackPosition) {
     playLiveset(found.edition, found.liveset, quality, position.position);
 }
 
-function dismiss(livesetId: number) {
-    dismissedIds.value.add(livesetId);
+function dismiss(position: PlaybackPosition) {
+    // Hide right away, the server keeps it hidden on every device until that device plays it again
+    dismissedIds.value.add(position.liveset_id);
+    dismissPosition(position.liveset_id, position.device?.client_id ?? null);
 }
 
 async function fetchPositions() {
@@ -150,7 +152,7 @@ onMounted(() => {
                 size="icon"
                 variant="ghost"
                 class="h-7 w-7 rounded-full shrink-0 cursor-pointer hover:bg-destructive/10"
-                @click="dismiss(position.liveset_id)"
+                @click="dismiss(position)"
             >
                 <X class="h-3.5 w-3.5" />
             </Button>

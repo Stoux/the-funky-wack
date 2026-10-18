@@ -526,6 +526,28 @@ export function usePlaybackSync() {
     }
 
     /**
+     * Dismiss another device's position as a "continue listening" suggestion, on all devices.
+     */
+    async function dismissPosition(livesetId: number, clientId: string | null) {
+        if (!isAuthenticated.value) return;
+
+        try {
+            await fetch(`/api/playback/positions/${livesetId}/dismiss`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-XSRF-TOKEN': getCsrfToken(),
+                },
+                credentials: 'include',
+                body: JSON.stringify({ client_id: clientId }),
+            });
+        } catch (error) {
+            console.error('Failed to dismiss position:', error);
+        }
+    }
+
+    /**
      * Clear saved position for a liveset.
      */
     async function clearPosition(livesetId: number) {
@@ -583,6 +605,7 @@ export function usePlaybackSync() {
         changeQuality,
         savePosition,
         loadPositions,
+        dismissPosition,
         clearPosition,
         onPlay,
         onPause,

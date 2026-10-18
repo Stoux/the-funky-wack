@@ -227,6 +227,11 @@ class PlaybackController extends Controller
 
         $positions = $user
             ->playbackPositions()
+            // Dismissed "continue listening" suggestions are hidden, the device's own positions stay for resuming
+            ->where(fn ($query) => $query->whereNull('dismissed_at')->when(
+                $currentClientId,
+                fn ($query) => $query->orWhere('client_id', $currentClientId),
+            ))
             ->with('liveset:id,title,artist_name,edition_id,duration_in_seconds')
             ->get()
             ->map(function (PlaybackPosition $position) use ($devices, $currentClientId) {
@@ -269,16 +274,38 @@ class PlaybackController extends Controller
             $request->user()->getOrCreateDevice($clientId, $request->userAgent());
         }
 
+        // Listening again brings a dismissed "continue listening" suggestion back
         $request->user()->playbackPositions()->updateOrCreate(
             [
                 'liveset_id' => $liveset->id,
                 'client_id' => $clientId,
             ],
-            ['position' => $validated['position']]
+            ['position' => $validated['position'], 'dismissed_at' => null]
         );
 
         return response()->json([
             'message' => 'Position saved.',
+        ]);
+    }
+
+    /**
+     * Dismiss another device's position as a "continue listening" suggestion, for all devices.
+     * It comes back once that device plays the set again.
+     */
+    public function dismissPosition(Request $request, Liveset $liveset): JsonResponse
+    {
+        $validated = $request->validate([
+            'client_id' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $request->user()
+            ->playbackPositions()
+            ->where('liveset_id', $liveset->id)
+            ->where('client_id', $validated['client_id'] ?? null)
+            ->update(['dismissed_at' => now()]);
+
+        return response()->json([
+            'message' => 'Position dismissed.',
         ]);
     }
 

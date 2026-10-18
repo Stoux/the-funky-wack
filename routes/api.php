@@ -88,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/history', [PlaybackController::class, 'history']);
         Route::get('/positions', [PlaybackController::class, 'positions']);
         Route::put('/positions/{liveset}', [PlaybackController::class, 'savePosition']);
+        Route::post('/positions/{liveset}/dismiss', [PlaybackController::class, 'dismissPosition']);
         Route::delete('/positions/{liveset}', [PlaybackController::class, 'clearPosition']);
     });
 
