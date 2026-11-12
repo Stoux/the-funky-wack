@@ -8,16 +8,21 @@ use App\Jobs\ConvertAudioJob;
 use App\Jobs\GenerateAudiowaveformJob;
 use App\Models\Liveset;
 use App\Models\LivesetFile;
+use App\Services\CueSheetParser;
 use App\Services\FileGenerationStatusService;
+use App\Services\TrackLinker;
+use App\Services\WavDurationReader;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class LivesetFilesController extends Controller
 {
-    public function livesetFiles(FileGenerationStatusService $statusService, Liveset $liveset)
+    public function livesetFiles(FileGenerationStatusService $statusService, CueSheetParser $cueParser, WavDurationReader $durationReader, Liveset $liveset)
     {
         $disk = Storage::disk('public');
 
@@ -29,9 +34,70 @@ class LivesetFilesController extends Controller
                 'converting' => $statusService->isConvertingFile($file->id),
             ]),
             'audioFiles' => $this->listFiles(Storage::disk('local'), 'audio'),
+            'importSuggestions' => $this->importSuggestions($cueParser, $durationReader),
+            'trackCount' => $liveset->tracks()->count(),
             'qualities' => LivesetQuality::options(),
             'isGeneratingWaveform' => $statusService->isGeneratingWaveform($liveset->id),
         ]);
+    }
+
+    /**
+     * What each audio file (and the cue sheet next to it) can fill in on the liveset
+     *
+     * @return array<string, array{tracks: int, recorded_at: ?string, duration: ?int}>
+     */
+    protected function importSuggestions(CueSheetParser $cueParser, WavDurationReader $durationReader): array
+    {
+        $result = [];
+        foreach ($this->listAudioFiles(Storage::disk('local'), 'audio') as $file) {
+            $cue = $this->readCue($cueParser, 'audio/'.$file);
+            $suggestion = [
+                'tracks' => count($cue['tracks'] ?? []),
+                'recorded_at' => ($cue['recorded_at'] ?? null)?->toIso8601String(),
+                'duration' => $this->readDuration($durationReader, 'audio/'.$file),
+            ];
+
+            if ($suggestion['tracks'] > 0 || $suggestion['recorded_at'] !== null || $suggestion['duration'] !== null) {
+                $result[$file] = $suggestion;
+            }
+        }
+
+        return $result;
+    }
+
+    protected function readDuration(WavDurationReader $durationReader, string $audioPath): ?int
+    {
+        if (! str_ends_with(strtolower($audioPath), '.wav')) {
+            return null;
+        }
+
+        $disk = Storage::disk('local');
+        $stream = $disk->readStream($audioPath);
+        if (! $stream) {
+            return null;
+        }
+
+        try {
+            return $durationReader->seconds($stream, $disk->size($audioPath));
+        } finally {
+            fclose($stream);
+        }
+    }
+
+    /**
+     * @return array{performer: ?string, recorded_at: ?\Carbon\CarbonImmutable, tracks: list<array{timestamp: int, title: string}>}|null
+     */
+    protected function readCue(CueSheetParser $cueParser, string $audioPath): ?array
+    {
+        $disk = Storage::disk('local');
+        $cuePath = $this->cuePath($audioPath);
+
+        return $disk->exists($cuePath) ? $cueParser->parse($disk->get($cuePath)) : null;
+    }
+
+    protected function cuePath(string $audioPath): string
+    {
+        return preg_replace('/\.[^.\/]+$/', '.cue', $audioPath);
     }
 
     protected function listAudioFiles(Filesystem $disk, string $path)
@@ -74,7 +140,7 @@ class LivesetFilesController extends Controller
         return $map;
     }
 
-    public function importLivesetFile(Liveset $liveset, Request $request)
+    public function importLivesetFile(CueSheetParser $cueParser, WavDurationReader $durationReader, TrackLinker $trackLinker, Liveset $liveset, Request $request)
     {
         $v = $request->validate([
             'path' => 'string|required',
@@ -87,6 +153,9 @@ class LivesetFilesController extends Controller
                 'in:'.implode(',', array_keys(LivesetQuality::options())),
             ],
             'original' => 'boolean',
+            'import_cue_tracks' => 'boolean',
+            'import_cue_start' => 'boolean',
+            'import_duration' => 'boolean',
         ]);
 
         $audioFiles = $this->listAudioFiles(Storage::disk('local'), 'audio');
@@ -121,8 +190,52 @@ class LivesetFilesController extends Controller
             ])->status(429);
         }
 
+        $filledIn = [];
+        $cue = $this->readCue($cueParser, 'audio/'.$v['path']);
+        if ($cue !== null && ($v['import_cue_tracks'] ?? false) && $cue['tracks'] !== []) {
+            $this->replaceTracks($trackLinker, $liveset, $cue['tracks']);
+            $filledIn[] = count($cue['tracks']).' tracks';
+        }
+        if ($cue !== null && ($v['import_cue_start'] ?? false) && $cue['recorded_at'] !== null) {
+            $liveset->update(['started_at' => $cue['recorded_at']]);
+            $filledIn[] = 'start time';
+        }
+        if ($v['import_duration'] ?? false) {
+            $duration = $this->readDuration($durationReader, 'audio/'.$v['path']);
+            if ($duration !== null) {
+                $liveset->update(['duration_in_seconds' => $duration]);
+                $filledIn[] = 'duration';
+            }
+        }
+
         return redirect()->route('admin.livesets.files', [$liveset])
-            ->with('success', 'Liveset file imported.');
+            ->with('success', $filledIn !== []
+                ? 'Liveset file imported, filled in '.Arr::join($filledIn, ', ', ' and ').'.'
+                : 'Liveset file imported.');
+    }
+
+    /**
+     * Replace the liveset's tracklist with the tracks of a cue sheet
+     *
+     * @param  list<array{timestamp: int, title: string}>  $tracks
+     */
+    protected function replaceTracks(TrackLinker $trackLinker, Liveset $liveset, array $tracks): void
+    {
+        DB::transaction(function () use ($liveset, $tracks) {
+            $liveset->tracks()->delete();
+
+            foreach ($tracks as $index => $track) {
+                $liveset->tracks()->create([
+                    'title' => $track['title'],
+                    'timestamp' => $track['timestamp'],
+                    'transition_start' => null,
+                    'order' => $index + 1,
+                ]);
+            }
+        });
+
+        // Replaced lines leave their alias (and maybe a track) behind
+        $trackLinker->pruneUnused();
     }
 
     public function editLivesetFile(Liveset $liveset, LivesetFile $file, Request $request)

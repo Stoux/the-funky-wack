@@ -13,6 +13,7 @@ import {
 import {Badge} from "@/components/ui/badge";
 import ConvertLivesetFile from "@/components/ConvertLivesetFile.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import {formatDuration} from "@/lib/utils";
 
 type RemoteDir = { [name: string]: RemoteDir | string };
 
@@ -20,6 +21,8 @@ const props = defineProps<{
     liveset: Liveset;
     files: LivesetFile[],
     audioFiles: RemoteDir,
+    importSuggestions: { [path: string]: { tracks: number, recorded_at: string | null, duration: number | null } },
+    trackCount: number,
     qualities: { [key: string]: string },
     isGeneratingWaveform: boolean,
 }>();
@@ -30,6 +33,24 @@ const form = useForm({
     path: '',
     quality: '',
     original: true as boolean,
+    import_cue_tracks: false as boolean,
+    import_cue_start: false as boolean,
+    import_duration: false as boolean,
+});
+
+const formatDateTime = (date: string) => new Date(date).toLocaleString('nl-NL', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+});
+
+const selectedSuggestion = computed(() => isEditing.value ? undefined : props.importSuggestions[form.path]);
+const cueStartDiffers = computed(() => {
+    const recordedAt = selectedSuggestion.value?.recorded_at;
+    return !!recordedAt && (!props.liveset.started_at
+        || new Date(recordedAt).getTime() !== new Date(props.liveset.started_at).getTime());
+});
+const durationDiffers = computed(() => {
+    const duration = selectedSuggestion.value?.duration;
+    return !!duration && duration !== props.liveset.duration_in_seconds;
 });
 
 const isEditing = ref(false);
@@ -121,6 +142,12 @@ const selectFile = (file: string) => {
     } else if (form.name.endsWith('.m4a')) {
         form.quality = 'lq';
     }
+
+    // Fill in what's empty, only suggest overwriting what's already there
+    const suggestion = props.importSuggestions[file];
+    form.import_cue_tracks = props.trackCount === 0 && (suggestion?.tracks ?? 0) > 0;
+    form.import_cue_start = !props.liveset.started_at && !!suggestion?.recorded_at;
+    form.import_duration = !props.liveset.duration_in_seconds && !!suggestion?.duration;
 }
 
 const breadcrumbs: HeaderBreadrumbItem[] = [
@@ -387,6 +414,57 @@ const breadcrumbs: HeaderBreadrumbItem[] = [
                             <div v-if="form.errors.original" class="text-sm text-red-500">
                                 {{ form.errors.original }}
                             </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1 md:col-span-2" v-if="selectedSuggestion && selectedSuggestion.tracks > 0">
+                            <div class="flex items-center gap-2">
+                                <input
+                                    id="import_cue_tracks"
+                                    v-model="form.import_cue_tracks"
+                                    type="checkbox"
+                                    class="rounded border border-sidebar-border/70 bg-transparent dark:border-sidebar-border"
+                                />
+                                <label for="import_cue_tracks" class="font-medium">
+                                    Import tracklist from .cue ({{ selectedSuggestion.tracks }} tracks)
+                                </label>
+                            </div>
+                            <p class="text-sm text-amber-600 dark:text-amber-400" v-if="form.import_cue_tracks && trackCount > 0">
+                                Replaces the current {{ trackCount }} tracks.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-col gap-1 md:col-span-2" v-if="selectedSuggestion?.recorded_at && cueStartDiffers">
+                            <div class="flex items-center gap-2">
+                                <input
+                                    id="import_cue_start"
+                                    v-model="form.import_cue_start"
+                                    type="checkbox"
+                                    class="rounded border border-sidebar-border/70 bg-transparent dark:border-sidebar-border"
+                                />
+                                <label for="import_cue_start" class="font-medium">
+                                    Set start time from .cue ({{ formatDateTime(selectedSuggestion.recorded_at) }})
+                                </label>
+                            </div>
+                            <p class="text-sm text-muted-foreground" v-if="liveset.started_at">
+                                Currently {{ formatDateTime(liveset.started_at) }}.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-col gap-1 md:col-span-2" v-if="selectedSuggestion?.duration && durationDiffers">
+                            <div class="flex items-center gap-2">
+                                <input
+                                    id="import_duration"
+                                    v-model="form.import_duration"
+                                    type="checkbox"
+                                    class="rounded border border-sidebar-border/70 bg-transparent dark:border-sidebar-border"
+                                />
+                                <label for="import_duration" class="font-medium">
+                                    Set duration from audio ({{ formatDuration(selectedSuggestion.duration, true) }})
+                                </label>
+                            </div>
+                            <p class="text-sm text-muted-foreground" v-if="liveset.duration_in_seconds">
+                                Currently {{ formatDuration(liveset.duration_in_seconds, true) }}.
+                            </p>
                         </div>
                     </div>
 
